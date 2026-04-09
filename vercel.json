@@ -6,13 +6,28 @@
       "use": "@vercel/node",
       "config": {
         "maxLambdaSize": "50mb",
-        "nodeVersion": "22.x"
+        "nodeVersion": "22.x",
+        "includeFiles": [
+          "index.html",
+          "login.html",
+          "register.html",
+          "dashboard.html",
+          "clients.html",
+          "factures.html",
+          "relances.html",
+          "encours.html",
+          "conformite.html",
+          "settings.html",
+          "cgu.html",
+          "confidentialite.html",
+          "guide-utilisateur.html",
+          "assets/app.css",
+          "assets/app.js"
+        ]
       }
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "backend/server.js" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "/(.*)", "dest": "backend/server.js" }
   ]
 }
