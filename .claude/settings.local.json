@@ -37,7 +37,8 @@
       "Bash(node --no-warnings -e \"require\\('/Users/hamza/Factur Pilot AI/backend/routes/invoices'\\)\")",
       "Bash(node --no-warnings -e \"require\\('/Users/hamza/Factur Pilot AI/backend/routes/user'\\)\")",
       "Bash(node -e ':*)",
-      "Bash(timeout 5 node server.js)"
+      "Bash(timeout 5 node server.js)",
+      "Bash(node -e \"const db = require\\('./db'\\); console.log\\('✅ DB OK, users:', db.prepare\\('SELECT COUNT\\(*\\) as n FROM users'\\).get\\(\\).n\\)\")"
     ]
   }
 }

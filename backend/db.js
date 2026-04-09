@@ -1,22 +1,23 @@
 'use strict';
-// Use Node.js v22.5+ built-in SQLite (no native compilation needed)
-const { DatabaseSync } = require('node:sqlite');
-const path   = require('path');
-const bcrypt = require('bcryptjs');
+// Utilise better-sqlite3 — compatible Node 18/20/22 + Vercel
+const Database = require('better-sqlite3');
+const path     = require('path');
+const bcrypt   = require('bcryptjs');
 
-// Suppress the "experimental" warning from node:sqlite
-const _emit = process.emit.bind(process);
-process.emit = (event, ...args) => {
-  if (event === 'warning' && args[0]?.name === 'ExperimentalWarning' &&
-      String(args[0]?.message).includes('SQLite')) return false;
-  return _emit(event, ...args);
-};
+// Sur Vercel, le filesystem est read-only sauf /tmp
+const DB_PATH = process.env.VERCEL
+  ? '/tmp/facturepilot.db'
+  : path.join(__dirname, 'facturepilot.db');
 
-const DB_PATH = path.join(__dirname, 'facturepilot.db');
-const db = new DatabaseSync(DB_PATH);
+const db = new Database(DB_PATH);
 
 // ─── WAL mode + foreign keys ─────────────────────────────────────────────────
-db.exec('PRAGMA journal_mode = WAL');
+// Sur Vercel (serverless), WAL peut poser des problèmes de verrou — utiliser DELETE
+if (process.env.VERCEL) {
+  db.exec('PRAGMA journal_mode = DELETE');
+} else {
+  db.exec('PRAGMA journal_mode = WAL');
+}
 db.exec('PRAGMA foreign_keys = ON');
 
 // ─── SCHEMA ──────────────────────────────────────────────────────────────────
@@ -174,8 +175,11 @@ function updateOverdueStatuses() {
   }
 }
 
-// Lancer immédiatement au démarrage puis toutes les heures
+// Lancer immédiatement au démarrage
 updateOverdueStatuses();
-setInterval(updateOverdueStatuses, 60 * 60 * 1000);
+// Sur Vercel (serverless), setInterval ne tourne pas entre les invocations
+if (!process.env.VERCEL) {
+  setInterval(updateOverdueStatuses, 60 * 60 * 1000);
+}
 
 module.exports = db;

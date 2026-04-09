@@ -1,7 +1,33 @@
+# Dépendances (Vercel les installe lui-même depuis package.json)
 node_modules/
-.DS_Store
+backend/node_modules/
+
+# Base de données SQLite (générée au démarrage — ne pas committer)
+backend/facturepilot.db
+backend/facturepilot.db-shm
+backend/facturepilot.db-wal
+
+# Secrets — NE JAMAIS committer
 .env
+backend/.env
+*.env.local
+*.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# Système
+.DS_Store
+Thumbs.db
 .codex/
+
+# Build
 build/
 dist/
-*.log
+
+# PM2
+.pm2/
+
+# Sauvegardes
+backend/scripts/backups/

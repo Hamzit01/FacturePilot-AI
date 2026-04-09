@@ -30,11 +30,13 @@ app.use(morgan(isProd ? 'combined' : 'dev'));
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3333', 'http://127.0.0.1:3333'];
+  : null; // null = pas de restriction (dev + Vercel same-origin)
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (mobile apps, curl, same-origin)
+    // Pas de restriction si ALLOWED_ORIGINS non configuré (dev / Vercel)
+    if (!allowedOrigins) return cb(null, true);
+    // Autoriser les requêtes sans origin (mobile, curl, same-origin)
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`Origine non autorisée : ${origin}`));
   },
@@ -104,10 +106,15 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: message });
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n✅  FacturePilot AI — Backend opérationnel`);
-  console.log(`🌐  http://localhost:${PORT}`);
-  console.log(`🔒  Mode : ${isProd ? 'PRODUCTION' : 'développement'}`);
-  console.log(`📧  Démo : hamza@facturepilot.ai / demo1234\n`);
-});
+// ─── Start (local) / Export (Vercel) ─────────────────────────────────────────
+// Sur Vercel, la fonction est invoquée directement — pas de app.listen()
+if (!process.env.VERCEL && require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\n✅  FacturePilot AI — Backend opérationnel`);
+    console.log(`🌐  http://localhost:${PORT}`);
+    console.log(`🔒  Mode : ${isProd ? 'PRODUCTION' : 'développement'}`);
+    console.log(`📧  Démo : hamza@facturepilot.ai / demo1234\n`);
+  });
+}
+
+module.exports = app;

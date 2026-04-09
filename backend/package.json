@@ -1,15 +1,16 @@
 {
   "name": "facturepilot-ai-backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "FacturePilot AI — Backend Node.js/Express + SQLite",
   "main": "server.js",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "scripts": {
-    "start": "NODE_ENV=production node --no-warnings server.js",
-    "dev": "node --no-warnings --watch server.js",
-    "prod": "NODE_ENV=production node --no-warnings server.js"
+    "start": "NODE_ENV=production node server.js",
+    "dev": "node --watch server.js",
+    "prod": "NODE_ENV=production node server.js",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
