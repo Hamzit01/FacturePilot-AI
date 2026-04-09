@@ -1,23 +1,26 @@
 'use strict';
-// Utilise better-sqlite3 — compatible Node 18/20/22 + Vercel
-const Database = require('better-sqlite3');
-const path     = require('path');
-const bcrypt   = require('bcryptjs');
+// node:sqlite — module INTÉGRÉ à Node.js 22+ (zéro dépendance native, zéro compilation)
+const { DatabaseSync } = require('node:sqlite');
+const path   = require('path');
+const bcrypt = require('bcryptjs');
 
-// Sur Vercel, le filesystem est read-only sauf /tmp
+// Supprimer le warning "ExperimentalWarning" de node:sqlite sur Node 22
+const _emit = process.emit.bind(process);
+process.emit = (event, ...args) => {
+  if (event === 'warning' && args[0]?.name === 'ExperimentalWarning' &&
+      String(args[0]?.message).includes('SQLite')) return false;
+  return _emit(event, ...args);
+};
+
+// Sur Vercel, le filesystem root est read-only — utiliser /tmp
 const DB_PATH = process.env.VERCEL
   ? '/tmp/facturepilot.db'
   : path.join(__dirname, 'facturepilot.db');
 
-const db = new Database(DB_PATH);
+const db = new DatabaseSync(DB_PATH);
 
 // ─── WAL mode + foreign keys ─────────────────────────────────────────────────
-// Sur Vercel (serverless), WAL peut poser des problèmes de verrou — utiliser DELETE
-if (process.env.VERCEL) {
-  db.exec('PRAGMA journal_mode = DELETE');
-} else {
-  db.exec('PRAGMA journal_mode = WAL');
-}
+db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
 // ─── SCHEMA ──────────────────────────────────────────────────────────────────

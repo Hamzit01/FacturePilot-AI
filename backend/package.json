@@ -4,7 +4,7 @@
   "description": "FacturePilot AI — Backend Node.js/Express + SQLite",
   "main": "server.js",
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "scripts": {
     "start": "NODE_ENV=production node server.js",

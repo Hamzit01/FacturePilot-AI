@@ -4,7 +4,10 @@
     {
       "src": "backend/server.js",
       "use": "@vercel/node",
-      "config": { "maxLambdaSize": "50mb" }
+      "config": {
+        "maxLambdaSize": "50mb",
+        "nodeVersion": "22.x"
+      }
     }
   ],
   "routes": [
