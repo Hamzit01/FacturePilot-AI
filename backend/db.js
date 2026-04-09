@@ -11,13 +11,13 @@ const d = (offset = 0) => {
 
 // ─── POOL PostgreSQL ──────────────────────────────────────────────────────────
 if (!process.env.DATABASE_URL) {
-  console.error('[DB] ERREUR : la variable d\'environnement DATABASE_URL n\'est pas définie.');
-  if (process.env.NODE_ENV === 'production') process.exit(1);
+  console.error('[DB] ERREUR : DATABASE_URL non défini — vérifiez les variables d\'environnement Vercel');
 }
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/facturepilot',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000,
 });
 
 // ─── SEED: create demo user + data if DB is empty ────────────────────────────
@@ -186,11 +186,11 @@ async function initDB() {
   console.log('✅  PostgreSQL connecté et prêt');
 }
 
-// Lance l'init, expose la promise pour le middleware server.js
-// NE PAS appeler process.exit() — laisser le middleware server.js retourner 503
+// Lance l'init — tous les erreurs sont loguées et propagées via la promise
+// Le middleware server.js retourne 503 si ready rejette (pas de process.exit)
 const ready = initDB().catch(err => {
   console.error('[DB] Erreur d\'initialisation :', err.message);
-  throw err; // la promise rejetée sera gérée par le middleware db.ready dans server.js
+  throw err;
 });
 
 module.exports = pool;
