@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FacturePilot AI — Conformité facturation électronique & recouvrement intelligent</title>
+  <style>
+    :root {
+      --navy: #1B3A4B;
+      --navy-light: #243f52;
+      --orange: #D4853B;
+      --orange-light: #e8965a;
+      --bg-light: #F4F7FA;
+      --bg-white: #ffffff;
+      --text-dark: #2C2C2C;
+      --text-muted: #6b7a8a;
+      --border: #CDD5DE;
+      --green: #1A7A3D;
+      --red: #B8352A;
+      --shadow: 0 4px 24px rgba(27,58,75,0.10);
+      --shadow-lg: 0 8px 40px rgba(27,58,75,0.16);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: var(--text-dark); background: var(--bg-white); line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.97);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      padding: 0 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 68px;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.2rem; color: var(--navy);
+    }
+    .nav-logo .logo-icon {
+      width: 36px; height: 36px; background: var(--navy);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    }
+    .nav-logo .logo-icon svg { width: 20px; height: 20px; fill: white; }
+    .nav-logo span.accent { color: var(--orange); }
+    .nav-links { display: flex; align-items: center; gap: 2rem; }
+    .nav-links a { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--navy); }
+    .nav-ctas { display: flex; align-items: center; gap: 0.75rem; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all .2s; border: none; }
+    .btn-ghost { background: transparent; color: var(--navy); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--navy); background: var(--bg-light); }
+    .btn-primary { background: var(--orange); color: white; }
+    .btn-primary:hover { background: var(--orange-light); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(212,133,59,.35); }
+    .btn-navy { background: var(--navy); color: white; }
+    .btn-navy:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-lg { padding: 14px 28px; font-size: 1rem; border-radius: 10px; }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #243f52 50%, #1a3245 100%);
+      color: white; padding: 90px 5% 80px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(212,133,59,.2); border: 1px solid rgba(212,133,59,.4);
+      color: #f5b07a; border-radius: 100px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .hero-badge .dot { width: 7px; height: 7px; background: var(--orange); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .hero h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.18; margin-bottom: 20px; }
+    .hero h1 span { color: var(--orange); }
+    .hero p { font-size: 1.1rem; color: rgba(255,255,255,.75); margin-bottom: 32px; max-width: 500px; }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+    .hero-trust { display: flex; gap: 24px; flex-wrap: wrap; }
+    .trust-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: rgba(255,255,255,.65); }
+    .trust-item svg { width: 16px; height: 16px; fill: var(--orange); flex-shrink: 0; }
+
+    /* COUNTDOWN */
+    .countdown-card {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 20px; padding: 32px; backdrop-filter: blur(10px);
+    }
+    .countdown-label { font-size: 0.85rem; color: rgba(255,255,255,.6); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .countdown-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: white; }
+    .countdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+    .countdown-unit { background: rgba(255,255,255,.1); border-radius: 12px; padding: 16px 8px; text-align: center; }
+    .countdown-unit .num { font-size: 2rem; font-weight: 800; color: var(--orange); line-height: 1; }
+    .countdown-unit .unit-label { font-size: 0.72rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+    .reform-badge {
+      background: rgba(184,53,42,.2); border: 1px solid rgba(184,53,42,.3);
+      color: #f07a72; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600;
+    }
+    .reform-badge strong { color: #f5a5a0; }
+
+    /* STATS BAR */
+    .stats-bar {
+      background: var(--bg-light); border-bottom: 1px solid var(--border);
+      padding: 20px 5%; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px;
+    }
+    .stat-item { text-align: center; }
+    .stat-item .num { font-size: 1.8rem; font-weight: 800; color: var(--navy); }
+    .stat-item .label { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* SECTION COMMONS */
+    section { padding: 80px 5%; }
+    .section-tag { display: inline-block; background: rgba(212,133,59,.1); color: var(--orange); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 5px 12px; border-radius: 100px; margin-bottom: 14px; }
+    .section-title { font-size: 2rem; font-weight: 800; color: var(--navy); margin-bottom: 12px; }
+    .section-subtitle { font-size: 1.05rem; color: var(--text-muted); max-width: 580px; }
+    .text-center { text-align: center; }
+    .text-center .section-subtitle { margin: 0 auto; }
+
+    /* PROBLEMS */
+    .problems { background: var(--bg-white); }
+    .problems-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+    .problem-card {
+      border: 1.5px solid var(--border); border-radius: 16px; padding: 32px;
+      transition: all .25s;
+    }
+    .problem-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
+    .problem-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+    .problem-icon.orange { background: rgba(212,133,59,.1); }
+    .problem-icon.red { background: rgba(184,53,42,.08); }
+    .problem-icon svg { width: 26px; height: 26px; }
+    .problem-card h3 { font-size: 1.2rem; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+    .problem-card p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px; }
+    .problem-stat { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg-light); border-radius: 8px; font-size: 0.88rem; color: var(--text-dark); font-weight: 600; }
+    .problem-stat svg { width: 16px; height: 16px; fill: var(--red); flex-shrink: 0; }
+
+    /* SOLUTION */
+    .solution { background: var(--bg-light); }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+    .feature-card {
+      background: white; border-radius: 16px; padding: 32px;
+      box-shadow: var(--shadow); transition: all .25s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .feature-icon { width: 54px; height: 54px; background: var(--navy); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .feature-icon svg { width: 26px; height: 26px; fill: white; }
+    .feature-card h3 { font-size: 1.1rem; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+    .feature-card p { color: var(--text-muted); font-size: 0.93rem; line-height: 1.6; }
+    .feature-tag { display: inline-block; margin-top: 14px; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 100px; }
+    .feature-tag.green { background: rgba(26,122,61,.1); color: var(--green); }
+    .feature-tag.orange { background: rgba(212,133,59,.12); color: var(--orange); }
+    .feature-tag.navy { background: rgba(27,58,75,.08); color: var(--navy); }
+
+    /* HOW IT WORKS */
+    .how { background: var(--bg-white); }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 48px; position: relative; }
+    .steps::before { content:''; position:absolute; top: 28px; left: 16%; right: 16%; height: 2px; background: var(--border); z-index: 0; }
+    .step { text-align: center; padding: 0 24px; position: relative; z-index: 1; }
+    .step-num { width: 56px; height: 56px; background: var(--navy); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; margin: 0 auto 20px; border: 4px solid white; box-shadow: var(--shadow); }
+    .step h3 { font-size: 1.05rem; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+    .step p { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* PRICING */
+    .pricing { background: var(--bg-light); }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+    .pricing-card {
+      background: white; border-radius: 20px; padding: 36px 28px;
+      border: 2px solid var(--border); transition: all .25s; position: relative;
+    }
+    .pricing-card.featured {
+      border-color: var(--orange); box-shadow: 0 8px 40px rgba(212,133,59,.2);
+      transform: scale(1.03);
+    }
+    .featured-badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: var(--orange); color: white; font-size: 0.78rem; font-weight: 700;
+      padding: 5px 16px; border-radius: 100px; white-space: nowrap;
+    }
+    .pricing-card:hover:not(.featured) { border-color: var(--navy); box-shadow: var(--shadow); }
+    .plan-name { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 8px; }
+    .plan-price { display: flex; align-items: baseline; gap: 4px; margin-bottom: 6px; }
+    .plan-price .amount { font-size: 2.8rem; font-weight: 800; color: var(--navy); }
+    .plan-price .amount.free { color: var(--green); }
+    .plan-price .period { font-size: 0.9rem; color: var(--text-muted); }
+    .plan-desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+    .plan-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; color: var(--text-dark); }
+    .plan-features li .check { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+    .plan-features li .check.yes { color: var(--green); }
+    .plan-features li .check.no { color: var(--border); }
+    .plan-cta { width: 100%; text-align: center; justify-content: center; }
+
+    /* TESTIMONIALS */
+    .testimonials { background: var(--navy); color: white; }
+    .testimonials .section-title { color: white; }
+    .testimonials .section-subtitle { color: rgba(255,255,255,.65); }
+    .testimonials .section-tag { background: rgba(212,133,59,.25); color: #f5b07a; }
+    .testi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+    .testi-card {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 16px; padding: 32px;
+    }
+    .testi-quote { font-size: 1rem; color: rgba(255,255,255,.85); line-height: 1.7; margin-bottom: 24px; font-style: italic; }
+    .testi-quote::before { content: '"'; color: var(--orange); font-size: 2rem; line-height: 0; vertical-align: -8px; margin-right: 4px; }
+    .testi-author { display: flex; align-items: center; gap: 14px; }
+    .testi-avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; color: white; }
+    .testi-info h4 { font-weight: 700; font-size: 0.95rem; }
+    .testi-info p { font-size: 0.83rem; color: rgba(255,255,255,.55); }
+
+    /* TIMELINE */
+    .timeline-section { background: var(--bg-white); }
+    .timeline { margin-top: 48px; position: relative; }
+    .timeline::before { content:''; position:absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+    .timeline-item { display: flex; gap: 28px; margin-bottom: 28px; padding-left: 16px; align-items: flex-start; }
+    .timeline-dot { width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px var(--border); flex-shrink: 0; margin-top: 4px; }
+    .timeline-dot.done { background: var(--green); box-shadow: 0 0 0 2px var(--green); }
+    .timeline-dot.active { background: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
+    .timeline-dot.future { background: var(--bg-light); box-shadow: 0 0 0 2px var(--border); }
+    .timeline-content { flex: 1; }
+    .timeline-period { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .timeline-content h4 { font-size: 1rem; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .timeline-content p { font-size: 0.9rem; color: var(--text-muted); }
+    .timeline-badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; margin-left: 8px; }
+    .badge-green { background: rgba(26,122,61,.1); color: var(--green); }
+    .badge-orange { background: rgba(212,133,59,.1); color: var(--orange); }
+    .badge-grey { background: var(--bg-light); color: var(--text-muted); }
+
+    /* FAQ */
+    .faq { background: var(--bg-light); }
+    .faq-list { margin-top: 40px; max-width: 760px; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 12px; }
+    .faq-item { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+    .faq-question {
+      padding: 20px 24px; font-weight: 600; font-size: 0.97rem; color: var(--navy);
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      transition: background .2s;
+    }
+    .faq-question:hover { background: var(--bg-light); }
+    .faq-question .arrow { transition: transform .25s; color: var(--text-muted); font-size: 1.2rem; }
+    .faq-question.open .arrow { transform: rotate(180deg); }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+    .faq-answer.open { max-height: 200px; }
+    .faq-answer p { padding: 0 24px 20px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.7; }
+
+    /* CTA SECTION */
+    .cta-section {
+      background: linear-gradient(135deg, var(--navy) 0%, #1f4560 100%);
+      padding: 80px 5%; text-align: center; color: white;
+    }
+    .cta-section h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 14px; }
+    .cta-section p { color: rgba(255,255,255,.7); font-size: 1.05rem; margin-bottom: 36px; max-width: 540px; margin-left: auto; margin-right: auto; }
+    .cta-form { display: flex; gap: 12px; justify-content: center; max-width: 500px; margin: 0 auto 20px; flex-wrap: wrap; }
+    .cta-input {
+      flex: 1; min-width: 220px; padding: 14px 18px; border-radius: 10px;
+      border: 1.5px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08);
+      color: white; font-size: 0.97rem; outline: none;
+      transition: border-color .2s;
+    }
+    .cta-input::placeholder { color: rgba(255,255,255,.4); }
+    .cta-input:focus { border-color: var(--orange); }
+    .cta-note { font-size: 0.82rem; color: rgba(255,255,255,.4); }
+
+    /* FOOTER */
+    footer {
+      background: #111e26; color: rgba(255,255,255,.55);
+      padding: 48px 5% 24px;
+    }
+    .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+    .footer-brand .nav-logo { margin-bottom: 14px; color: white; }
+    .footer-brand p { font-size: 0.88rem; line-height: 1.7; max-width: 280px; }
+    .footer-col h4 { color: white; font-size: 0.9rem; font-weight: 700; margin-bottom: 16px; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col ul li a { font-size: 0.88rem; transition: color .2s; }
+    .footer-col ul li a:hover { color: white; }
+    .footer-bottom { border-top: 1px solid rgba(255,255,255,.08); padding-top: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.82rem; }
+    .footer-bottom a:hover { color: white; }
+
+    /* DASHBOARD PREVIEW */
+    .dashboard-preview { background: var(--bg-white); overflow: hidden; }
+    .preview-wrapper { margin-top: 48px; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+    .preview-bar { background: var(--navy); padding: 12px 20px; display: flex; align-items: center; gap: 8px; }
+    .preview-bar .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .preview-bar .dot:nth-child(1) { background: #ff5f57; }
+    .preview-bar .dot:nth-child(2) { background: #febc2e; }
+    .preview-bar .dot:nth-child(3) { background: #28c840; }
+    .preview-bar .url-bar { flex: 1; background: rgba(255,255,255,.1); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; color: rgba(255,255,255,.6); margin: 0 12px; }
+    .preview-content { background: var(--bg-light); display: grid; grid-template-columns: 220px 1fr; min-height: 420px; }
+    .preview-sidebar { background: var(--navy); padding: 24px 0; }
+    .sidebar-item { padding: 10px 20px; display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: rgba(255,255,255,.55); cursor: pointer; transition: all .2s; }
+    .sidebar-item:hover, .sidebar-item.active { background: rgba(255,255,255,.08); color: white; }
+    .sidebar-item.active { border-left: 3px solid var(--orange); }
+    .sidebar-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    .preview-main { padding: 24px; overflow: auto; }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .preview-header h3 { font-size: 1.05rem; font-weight: 700; color: var(--navy); }
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .kpi-card { background: white; border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
+    .kpi-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
+    .kpi-val { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
+    .kpi-change { font-size: 0.75rem; color: var(--green); font-weight: 600; }
+    .invoice-table { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+    .inv-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 8px; padding: 10px 16px; background: var(--bg-light); font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .inv-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 8px; padding: 10px 16px; font-size: 0.82rem; border-top: 1px solid var(--border); align-items: center; }
+    .inv-row:hover { background: var(--bg-light); }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 0.72rem; font-weight: 700; }
+    .status-paid { background: rgba(26,122,61,.1); color: var(--green); }
+    .status-pending { background: rgba(212,133,59,.1); color: var(--orange); }
+    .status-overdue { background: rgba(184,53,42,.1); color: var(--red); }
+    .status-sent { background: rgba(27,58,75,.08); color: var(--navy); }
+    .ai-chip { background: linear-gradient(90deg, var(--orange), #e8965a); color: white; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 100px; }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 2rem; }
+      .problems-grid, .features-grid, .pricing-grid, .testi-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+      .preview-content { grid-template-columns: 1fr; }
+      .preview-sidebar { display: none; }
+      .kpi-row { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .pricing-card.featured { transform: scale(1); }
+    }
+    @media (max-width: 480px) {
+      nav { padding: 0 4%; }
+      .hero { padding: 60px 4% 60px; }
+      section { padding: 60px 4%; }
+      .hero h1 { font-size: 1.7rem; }
+      .section-title { font-size: 1.6rem; }
+      .footer-top { grid-template-columns: 1fr; }
+      .kpi-row { grid-template-columns: 1fr 1fr; }
+      .inv-header, .inv-row { grid-template-columns: 2fr 1fr 1fr; }
+      .inv-row > *:nth-child(4), .inv-row > *:nth-child(5),
+      .inv-header > *:nth-child(4), .inv-header > *:nth-child(5) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="index.html" style="text-decoration:none;color:inherit">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM9 13h6v1.5H9zm0 3h6v1.5H9zm0-6h3v1.5H9z"/></svg>
+    </div>
+    <span>Facture<span class="accent">Pilot</span> AI</span>
+  </a>
+  <div class="nav-links">
+    <a href="#fonctionnalites">Fonctionnalités</a>
+    <a href="#tarifs">Tarifs</a>
+    <a href="#temoignages">Témoignages</a>
+    <a href="#calendrier">Calendrier</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="nav-ctas">
+    <a href="login.html" class="btn btn-ghost">Connexion</a>
+    <a href="register.html" class="btn btn-primary">Essai gratuit</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div>
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Réforme facturation électronique — 1er sept. 2026
+    </div>
+    <h1>La <span>facturation conforme</span> et le recouvrement intelligent pour les TPE/PME</h1>
+    <p>FacturePilot AI vous met en conformité avec la réforme 2026 et réduit vos délais de paiement de 40 à 50 % grâce à l'IA.</p>
+    <div class="hero-ctas">
+      <a href="register.html" class="btn btn-primary btn-lg">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 14.93V17a1 1 0 0 1-2 0v-.07A8.003 8.003 0 0 1 4 9c0-4.41 3.59-8 8-8s8 3.59 8 8a8.003 8.003 0 0 1-7 7.93zM13 9V7a1 1 0 0 0-2 0v2H9a1 1 0 0 0 0 2h2v2a1 1 0 0 0 2 0v-2h2a1 1 0 0 0 0-2h-2z"/></svg>
+        Démarrer gratuitement
+      </a>
+      <a href="dashboard.html" class="btn btn-ghost btn-lg" style="color:white;border-color:rgba(255,255,255,.3);">
+        Voir la démo
+      </a>
+    </div>
+    <div class="hero-trust">
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        Factures Factur-X conformes
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        Relances IA automatisées
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        Essai gratuit 14 jours
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="countdown-card">
+      <div class="countdown-label">Compte à rebours</div>
+      <div class="countdown-title">Obligation de réception — 1er septembre 2026</div>
+      <div class="countdown-grid" id="countdown">
+        <div class="countdown-unit"><div class="num" id="cd-days">--</div><div class="unit-label">Jours</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-hours">--</div><div class="unit-label">Heures</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-mins">--</div><div class="unit-label">Minutes</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-secs">--</div><div class="unit-label">Secondes</div></div>
+      </div>
+      <div class="reform-badge">
+        <strong>80 %</strong> des TPE/PME ne sont pas encore conformes — agissez maintenant
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item"><div class="num">4,3M</div><div class="label">TPE/PME concernées en France</div></div>
+  <div class="stat-item"><div class="num">Sept. 2026</div><div class="label">Date d'entrée en vigueur</div></div>
+  <div class="stat-item"><div class="num">15 €</div><div class="label">Amende par facture non conforme</div></div>
+  <div class="stat-item"><div class="num">-40 à -50 %</div><div class="label">Réduction des délais de paiement</div></div>
+  <div class="stat-item"><div class="num">3-5h</div><div class="label">Par semaine perdues en relances manuelles</div></div>
+</div>
+
+<!-- PROBLEMS -->
+<section class="problems" id="problemes">
+  <div class="section-tag">Le problème</div>
+  <div class="section-title">Deux défis majeurs pour les TPE/PME</div>
+  <div class="section-subtitle">La réforme de la facturation électronique et les retards de paiement menacent concrètement votre activité.</div>
+  <div class="problems-grid">
+    <div class="problem-card">
+      <div class="problem-icon orange">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#D4853B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/>
+        </svg>
+      </div>
+      <h3>Réforme de la facturation électronique</h3>
+      <p>À partir du <strong>1er septembre 2026</strong>, toutes les entreprises assujetties à la TVA devront recevoir des factures au format structuré (Factur-X, UBL ou CII). L'émission obligatoire pour les TPE/PME entre en vigueur en <strong>septembre 2027</strong>.</p>
+      <div class="problem-stat">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        Seulement 20 % des TPE/PME émettent déjà en format structuré
+      </div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#B8352A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+        </svg>
+      </div>
+      <h3>Retards de paiement & impayés</h3>
+      <p>Premier facteur de défaillance des petites entreprises. Les délais interentreprises dépassent fréquemment <strong>45 à 60 jours</strong>. Résultat : 3 à 5 heures perdues chaque semaine à relancer manuellement, souvent trop tard.</p>
+      <div class="problem-stat">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        45 à 60 jours de délais de paiement en moyenne
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section class="solution" id="fonctionnalites">
+  <div class="text-center">
+    <div class="section-tag">La solution</div>
+    <div class="section-title">Tout ce dont vous avez besoin, en un seul outil</div>
+    <div class="section-subtitle">FacturePilot AI est spécialisé sur le parcours <strong>facture → paiement reçu</strong>, rendu simple par l'intelligence artificielle.</div>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM9 13h6v1.5H9zm0 3h6v1.5H9zm0-6h3v1.5H9z"/></svg>
+      </div>
+      <h3>Facturation conforme Factur-X</h3>
+      <p>Créez vos factures au format légal (Factur-X, UBL, CII), avec toutes les mentions obligatoires. Transmettez-les automatiquement via une plateforme agréée par l'État. Zéro risque d'amende.</p>
+      <span class="feature-tag green">Conformité 2026 garantie</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--orange);">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h3>Relances IA personnalisées</h3>
+      <p>L'intelligence artificielle rédige chaque relance avec le ton adapté : premier retard poli, récidive ferme, gros montant urgent. SMS et email automatiques. Votre relation client préservée.</p>
+      <span class="feature-tag orange">Réduction délais de -40 à -50 %</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--green);">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      </div>
+      <h3>Tableau de bord encours</h3>
+      <p>Visualisez en temps réel vos encours, les factures en retard, le risque client et vos flux de trésorerie prévisionnels. Une vue claire pour piloter votre activité sans effort.</p>
+      <span class="feature-tag navy">Pilotage en temps réel</span>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD PREVIEW -->
+<section class="dashboard-preview">
+  <div class="text-center">
+    <div class="section-tag">Aperçu</div>
+    <div class="section-title">Votre tableau de bord FacturePilot AI</div>
+    <div class="section-subtitle">Interface simple, conçue pour les dirigeants de TPE/PME — pas pour les comptables.</div>
+  </div>
+  <div class="preview-wrapper">
+    <div class="preview-bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <div class="url-bar">app.facturepilot.ai/tableau-de-bord</div>
+    </div>
+    <div class="preview-content">
+      <div class="preview-sidebar">
+        <div style="padding: 16px 20px; margin-bottom: 8px;">
+          <div style="color:white; font-weight:700; font-size:0.95rem;">FacturePilot <span style="color:var(--orange)">AI</span></div>
+        </div>
+        <div class="sidebar-item active">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          Tableau de bord
+        </div>
+        <div class="sidebar-item">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+          Mes factures
+        </div>
+        <div class="sidebar-item">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Clients
+        </div>
+        <div class="sidebar-item">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Relances IA
+        </div>
+        <div class="sidebar-item">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+          Encours
+        </div>
+      </div>
+      <div class="preview-main">
+        <div class="preview-header">
+          <h3>Tableau de bord — Avril 2026</h3>
+          <a href="dashboard.html" class="btn btn-primary" style="font-size:0.82rem;padding:8px 14px;">Ouvrir la démo →</a>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">CA mensuel</div>
+            <div class="kpi-val">12 400 €</div>
+            <div class="kpi-change">↑ +18 % vs mois préc.</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Encours total</div>
+            <div class="kpi-val">8 250 €</div>
+            <div class="kpi-change" style="color:var(--orange)">3 factures en attente</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">En retard</div>
+            <div class="kpi-val" style="color:var(--red)">2 100 €</div>
+            <div class="kpi-change" style="color:var(--red)">2 relances IA envoyées</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Taux de recouvrement</div>
+            <div class="kpi-val">94 %</div>
+            <div class="kpi-change">↑ +12 % avec l'IA</div>
+          </div>
+        </div>
+        <div class="invoice-table">
+          <div class="inv-header">
+            <span>Client</span>
+            <span>Montant</span>
+            <span>Échéance</span>
+            <span>Statut</span>
+            <span>Action IA</span>
+          </div>
+          <div class="inv-row">
+            <span style="font-weight:600">Agence Dupont</span>
+            <span>3 200 €</span>
+            <span>15/03/26</span>
+            <span><span class="status-badge status-paid">Payée</span></span>
+            <span>—</span>
+          </div>
+          <div class="inv-row">
+            <span style="font-weight:600">BTP Martin</span>
+            <span>1 850 €</span>
+            <span>31/03/26</span>
+            <span><span class="status-badge status-overdue">En retard</span></span>
+            <span><span class="ai-chip">Relance J+2</span></span>
+          </div>
+          <div class="inv-row">
+            <span style="font-weight:600">Coiffure Élise</span>
+            <span>650 €</span>
+            <span>10/04/26</span>
+            <span><span class="status-badge status-pending">En attente</span></span>
+            <span>—</span>
+          </div>
+          <div class="inv-row">
+            <span style="font-weight:600">Pharma Loire</span>
+            <span>5 400 €</span>
+            <span>30/04/26</span>
+            <span><span class="status-badge status-sent">Envoyée</span></span>
+            <span>—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="text-center">
+    <div class="section-tag">Comment ça marche</div>
+    <div class="section-title">Opérationnel en moins de 10 minutes</div>
+    <div class="section-subtitle">Pas de formation, pas d'installation. Vous êtes dirigeant, pas développeur.</div>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Créez votre compte</h3>
+      <p>Inscrivez-vous en 2 minutes. Saisissez vos informations entreprise, votre SIREN et coordonnées bancaires.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Émettez vos factures</h3>
+      <p>Créez et envoyez des factures conformes Factur-X en quelques clics. La plateforme gère la transmission légale pour vous.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>L'IA relance pour vous</h3>
+      <p>Dès qu'une échéance approche ou est dépassée, FacturePilot AI rédige et envoie automatiquement la relance adaptée.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="tarifs">
+  <div class="text-center">
+    <div class="section-tag">Tarifs</div>
+    <div class="section-title">Simple, transparent, sans surprise</div>
+    <div class="section-subtitle">Commencez gratuitement. Passez au niveau supérieur quand vous le souhaitez. Résiliez à tout moment.</div>
+  </div>
+  <div class="pricing-grid">
+    <!-- ESSENTIEL -->
+    <div class="pricing-card">
+      <div class="plan-name">Essentiel</div>
+      <div class="plan-price"><span class="amount free">Gratuit</span></div>
+      <div class="plan-desc">Pour découvrir l'outil et créer vos premières factures conformes.</div>
+      <ul class="plan-features">
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Jusqu'à 10 factures/mois</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Conformité Factur-X</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Envoi par email</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> 1 utilisateur</li>
+        <li><svg class="check no" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg> <span style="color:var(--text-muted)">Relances IA</span></li>
+        <li><svg class="check no" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg> <span style="color:var(--text-muted)">Scoring client</span></li>
+        <li><svg class="check no" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg> <span style="color:var(--text-muted)">Mise en demeure auto</span></li>
+      </ul>
+      <a href="register.html" class="btn btn-ghost plan-cta">Commencer gratuitement</a>
+    </div>
+    <!-- PRO -->
+    <div class="pricing-card featured">
+      <div class="featured-badge">Le plus populaire</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price"><span class="amount">29 €</span><span class="period">/mois HT</span></div>
+      <div class="plan-desc">L'essentiel pour les TPE qui veulent automatiser leurs relances et réduire leurs impayés.</div>
+      <ul class="plan-features">
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> 100 factures/mois</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Conformité Factur-X</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> <strong>Relances IA email + SMS</strong></li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> 2 utilisateurs</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Support prioritaire</li>
+        <li><svg class="check no" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg> <span style="color:var(--text-muted)">Scoring client risque</span></li>
+        <li><svg class="check no" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg> <span style="color:var(--text-muted)">Mise en demeure auto</span></li>
+      </ul>
+      <a href="register.html" class="btn btn-primary plan-cta">Essai gratuit 14 jours</a>
+    </div>
+    <!-- BUSINESS -->
+    <div class="pricing-card">
+      <div class="plan-name">Business</div>
+      <div class="plan-price"><span class="amount">49 €</span><span class="period">/mois HT</span></div>
+      <div class="plan-desc">Pour les PME avec des volumes importants qui veulent une gestion du recouvrement complète.</div>
+      <ul class="plan-features">
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Factures illimitées</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Conformité Factur-X</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Relances IA email + SMS</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> <strong>Scoring client risque</strong></li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> <strong>Mise en demeure automatique</strong></li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> 5 utilisateurs</li>
+        <li><svg class="check yes" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Support téléphonique</li>
+      </ul>
+      <a href="register.html" class="btn btn-navy plan-cta">Essai gratuit 14 jours</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials" id="temoignages">
+  <div class="text-center">
+    <div class="section-tag">Témoignages</div>
+    <div class="section-title">Ce que disent nos clients</div>
+    <div class="section-subtitle">Des dirigeants comme vous, qui avaient exactement les mêmes problèmes.</div>
+  </div>
+  <div class="testi-grid">
+    <div class="testi-card">
+      <p class="testi-quote">Je passais mes dimanches soir à envoyer des relances manuelles. Avec FacturePilot AI, c'est l'outil qui s'en charge. J'ai récupéré 4 200 € d'impayés en moins de trois semaines sans casser une seule relation client.</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background: var(--orange);">M</div>
+        <div class="testi-info">
+          <h4>Marc, artisan électricien</h4>
+          <p>Auto-entrepreneur — Saint-Dizier (Haute-Marne)</p>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <p class="testi-quote">Je ne savais même pas ce qu'était le format Factur-X. FacturePilot m'a mise en conformité en 10 minutes. Et le module de relance IA ? Mes délais de paiement sont passés de 52 jours à 31 jours en deux mois.</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background: #6b5ea8;">S</div>
+        <div class="testi-info">
+          <h4>Sophie, dirigeante d'agence de communication</h4>
+          <p>6 salariés — Reims (Marne)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section class="timeline-section" id="calendrier">
+  <div class="section-tag">Calendrier</div>
+  <div class="section-title">Alerte : les échéances approchent</div>
+  <div class="section-subtitle">La réforme est échelonnée. Voici les dates clés à ne pas manquer.</div>
+  <div class="timeline" style="max-width:640px; margin-top:48px;">
+    <div class="timeline-item">
+      <div class="timeline-dot done"></div>
+      <div class="timeline-content">
+        <div class="timeline-period">Avr–Mai 2026</div>
+        <h4>Phase de préparation <span class="timeline-badge badge-green">Fait</span></h4>
+        <p>Étude de marché terrain, développement du MVP, tests utilisateurs.</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot active"></div>
+      <div class="timeline-content">
+        <div class="timeline-period">Juin 2026</div>
+        <h4>Lancement FacturePilot AI <span class="timeline-badge badge-orange">En cours</span></h4>
+        <p>Création de la SASU, mise en ligne du portail, premières factures Factur-X générées.</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot future"></div>
+      <div class="timeline-content">
+        <div class="timeline-period">1er septembre 2026</div>
+        <h4>Obligation de réception — TOUTES les entreprises <span class="timeline-badge badge-grey">J-146</span></h4>
+        <p>Toutes les entreprises assujetties à la TVA doivent pouvoir <strong>recevoir</strong> des factures électroniques structurées. Sanction : 15 € par facture.</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot future"></div>
+      <div class="timeline-content">
+        <div class="timeline-period">1er septembre 2027</div>
+        <h4>Obligation d'émission — TPE/PME</h4>
+        <p>Les petites et moyennes entreprises devront également <strong>émettre</strong> leurs factures au format structuré via une plateforme agréée.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="text-center">
+    <div class="section-tag">Questions fréquentes</div>
+    <div class="section-title">On répond à vos questions</div>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Qu'est-ce que le format Factur-X et pourquoi est-ce obligatoire ?
+        <span class="arrow">▾</span>
+      </div>
+      <div class="faq-answer">
+        <p>Factur-X est un format de facture électronique hybride (PDF lisible + données XML structurées) reconnu par l'État français. À partir du 1er septembre 2026, vous devrez être capable de recevoir des factures dans ce format. FacturePilot AI gère tout cela automatiquement.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Mon comptable utilise déjà un logiciel. Est-ce que FacturePilot AI le remplace ?
+        <span class="arrow">▾</span>
+      </div>
+      <div class="faq-answer">
+        <p>Non. FacturePilot AI est spécialisé sur le cycle facturation → paiement. Il complète votre logiciel de comptabilité sans le remplacer. Vos exports sont compatibles avec les formats standards (Sage, EBP, Cegid, etc.).</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Comment fonctionne la relance IA ? Est-ce que ça peut froisser mes clients ?
+        <span class="arrow">▾</span>
+      </div>
+      <div class="faq-answer">
+        <p>L'IA adapte le ton selon le contexte : un premier retard reçoit un message courtois et professionnel. En cas de récidive ou de montant important, le ton devient plus ferme. Vous pouvez prévisualiser et valider chaque message avant envoi, ou laisser l'IA agir automatiquement.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Puis-je annuler mon abonnement à tout moment ?
+        <span class="arrow">▾</span>
+      </div>
+      <div class="faq-answer">
+        <p>Oui, sans engagement et sans frais. Vous pouvez résilier depuis votre espace client en un clic. Vous conservez l'accès jusqu'à la fin de la période payée.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Mes données sont-elles sécurisées ?
+        <span class="arrow">▾</span>
+      </div>
+      <div class="faq-answer">
+        <p>Vos données sont hébergées en Europe (serveurs certifiés HDS), chiffrées en transit et au repos. FacturePilot AI est conforme RGPD. Vous restez propriétaire de vos données et pouvez les exporter à tout moment.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <h2>Prêt à être conforme avant septembre 2026 ?</h2>
+  <p>Rejoignez les premières entreprises du Grand Est à se mettre en conformité — et à récupérer leurs impayés grâce à l'IA.</p>
+  <form class="cta-form" onsubmit="handleSignup(event)">
+    <input type="email" class="cta-input" placeholder="votre@email.pro" required />
+    <button type="submit" class="btn btn-primary btn-lg">Démarrer gratuitement</button>
+  </form>
+  <div class="cta-note">Gratuit pour commencer · Sans carte bancaire · Résiliation à tout moment</div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <a class="nav-logo" href="index.html" style="text-decoration:none;color:white;margin-bottom:14px;display:inline-flex">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM9 13h6v1.5H9zm0 3h6v1.5H9zm0-6h3v1.5H9z"/></svg>
+        </div>
+        <span>Facture<span class="accent">Pilot</span> AI</span>
+      </a>
+      <p>Conformité facturation électronique & recouvrement intelligent pour les TPE/PME françaises. Fondé à Saint-Dizier, Grand Est.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Produit</h4>
+      <ul>
+        <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+        <li><a href="#tarifs">Tarifs</a></li>
+        <li><a href="dashboard.html">Démo</a></li>
+        <li><a href="#calendrier">Calendrier</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Ressources</h4>
+      <ul>
+        <li><a href="guide-utilisateur.html" target="_blank">Guide utilisateur PDF</a></li>
+        <li><a href="#calendrier">Calendrier réforme 2026</a></li>
+        <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Entreprise</h4>
+      <ul>
+        <li><a href="#temoignages">À propos</a></li>
+        <li><a href="mailto:contact@facturepilot.ai">Contact</a></li>
+        <li><a href="cgu.html" target="_blank">CGU</a></li>
+        <li><a href="confidentialite.html" target="_blank">Politique RGPD</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 FacturePilot AI — SASU · Saint-Dizier, Grand Est · SIRET en cours</span>
+    <span><a href="mailto:contact@facturepilot.ai" style="color:inherit">contact@facturepilot.ai</a></span>
+  </div>
+</footer>
+
+<script>
+  // Countdown to Sept 1, 2026
+  function updateCountdown() {
+    const target = new Date('2026-09-01T00:00:00');
+    const now = new Date();
+    const diff = target - now;
+    if (diff <= 0) {
+      document.getElementById('cd-days').textContent = '0';
+      document.getElementById('cd-hours').textContent = '0';
+      document.getElementById('cd-mins').textContent = '0';
+      document.getElementById('cd-secs').textContent = '0';
+      return;
+    }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    document.getElementById('cd-days').textContent = days;
+    document.getElementById('cd-hours').textContent = String(hours).padStart(2,'0');
+    document.getElementById('cd-mins').textContent = String(mins).padStart(2,'0');
+    document.getElementById('cd-secs').textContent = String(secs).padStart(2,'0');
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  // FAQ toggle
+  function toggleFaq(el) {
+    const answer = el.nextElementSibling;
+    const isOpen = el.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.faq-question').forEach(q => q.classList.remove('open'));
+    document.querySelectorAll('.faq-answer').forEach(a => a.classList.remove('open'));
+    if (!isOpen) {
+      el.classList.add('open');
+      answer.classList.add('open');
+    }
+  }
+
+  // Signup form
+  function handleSignup(e) {
+    e.preventDefault();
+    const email = e.target.querySelector('input[type="email"]').value;
+    if (email) {
+      localStorage.setItem('fp_signup_email', email);
+      window.location.href = 'register.html';
+    }
+  }
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+</script>
+</body>
+</html>

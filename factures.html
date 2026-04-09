@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Factures — FacturePilot AI</title>
+<link rel="stylesheet" href="assets/app.css"/>
+<style>
+.filter-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.filter-pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{padding:6px 14px;border-radius:100px;font-size:.82rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text-muted);transition:all .2s}
+.pill.active{background:var(--navy);color:white;border-color:var(--navy)}
+.pill.retard.active{background:var(--red);border-color:var(--red)}
+.pill.payee.active{background:var(--green);border-color:var(--green)}
+.table-wrap{overflow-x:auto}
+.total-row{background:var(--bg-light);font-weight:700}
+.row-actions{display:flex;gap:6px;align-items:center}
+.lignes-table{width:100%;border-collapse:collapse;margin-bottom:12px}
+.lignes-table th{background:var(--bg-light);padding:8px 12px;font-size:.78rem;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--border)}
+.lignes-table td{padding:10px 12px;font-size:.88rem;border-bottom:1px solid var(--border)}
+.facturx-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(26,122,61,.1);color:var(--green);font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:100px}
+.facturx-badge svg{width:11px;height:11px;fill:var(--green)}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left"><h2>Mes factures</h2><div class="breadcrumb">Gestion complète · Factur-X</div></div>
+      <div class="topbar-right">
+        <div class="search-bar"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input type="text" id="search" placeholder="Rechercher…" oninput="renderTable()"/></div>
+        <button class="btn btn-primary" onclick="FP.openModal('modal-invoice')">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Nouvelle facture
+        </button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="filter-bar">
+        <div class="filter-pills">
+          <span class="pill active" data-filter="all" onclick="setFilter(this,'all')">Toutes <span id="cnt-all"></span></span>
+          <span class="pill" data-filter="brouillon" onclick="setFilter(this,'brouillon')">Brouillons</span>
+          <span class="pill" data-filter="envoyee" onclick="setFilter(this,'envoyee')">Envoyées</span>
+          <span class="pill retard" data-filter="retard" onclick="setFilter(this,'retard')">En retard</span>
+          <span class="pill payee" data-filter="payee" onclick="setFilter(this,'payee')">Payées</span>
+        </div>
+        <div style="margin-left:auto;font-size:.82rem;color:var(--text-muted)" id="total-label"></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data-table" id="inv-table">
+            <thead><tr>
+              <th>N° Facture</th><th>Client</th><th>Objet</th><th>Montant HT</th><th>TTC</th><th>Émission</th><th>Échéance</th><th>Statut</th><th>Factur-X</th><th style="text-align:right">Actions</th>
+            </tr></thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer" id="table-footer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOUVELLE FACTURE -->
+<div class="modal-overlay" id="modal-invoice" onclick="if(event.target===this)FP.closeModal('modal-invoice')">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-inv-title">Nouvelle facture</h3>
+        <div style="font-size:.8rem;color:var(--green);font-weight:600;margin-top:3px">✓ Format Factur-X — conforme réforme septembre 2026</div>
+      </div>
+      <button class="modal-close" onclick="FP.closeModal('modal-invoice')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="inv-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Client <span class="req">*</span></label>
+          <select class="form-control" id="inv-client" onchange="fillClientData()">
+            <option value="">— Sélectionner un client —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Numéro de facture</label>
+          <input class="form-control" id="inv-numero" readonly/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date d'émission <span class="req">*</span></label>
+          <input type="date" class="form-control" id="inv-date-emission"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date d'échéance <span class="req">*</span></label>
+          <input type="date" class="form-control" id="inv-date-echeance"/>
+        </div>
+      </div>
+      <!-- Lignes de facturation -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Lignes de facturation <span class="req">*</span></label>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addLigne()">+ Ajouter une ligne</button>
+        </div>
+        <div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead style="background:var(--bg-light)">
+              <tr>
+                <th style="padding:8px 12px;font-size:.75rem;font-weight:700;color:var(--text-muted);text-align:left">Description</th>
+                <th style="padding:8px 10px;font-size:.75rem;font-weight:700;color:var(--text-muted);text-align:right;width:70px">Qté</th>
+                <th style="padding:8px 10px;font-size:.75rem;font-weight:700;color:var(--text-muted);text-align:right;width:110px">Prix unit. HT</th>
+                <th style="padding:8px 10px;font-size:.75rem;font-weight:700;color:var(--text-muted);text-align:right;width:110px">Total HT</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="lignes-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">TVA</label>
+          <select class="form-control" id="inv-tva" onchange="calcTTC()">
+            <option value="20">20 %</option>
+            <option value="10">10 %</option>
+            <option value="5.5">5,5 %</option>
+            <option value="0">0 % (exonéré)</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <div style="background:rgba(26,122,61,.06);border:1px solid rgba(26,122,61,.2);border-radius:10px;padding:14px 18px">
+        <div style="display:flex;justify-content:space-between;font-size:.88rem;color:var(--text-muted);margin-bottom:4px">
+          <span>Total HT</span><span id="ht-display" style="font-weight:600;color:var(--navy)">0,00 €</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.88rem;color:var(--text-muted);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(26,122,61,.2)">
+          <span id="tva-label">TVA (20%)</span><span id="tva-display" style="font-weight:600">0,00 €</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.88rem;color:var(--text-muted)">Total TTC</span>
+          <span style="font-size:1.5rem;font-weight:800;color:var(--navy)" id="ttc-display">0,00 €</span>
+        </div>
+      </div>
+      <!-- Champ caché pour compat backward -->
+      <input type="hidden" id="inv-objet"/>
+      <input type="hidden" id="inv-ht"/>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Notes / Conditions de paiement</label>
+        <textarea class="form-control" id="inv-notes" placeholder="Paiement par virement bancaire — IBAN : FR76…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Statut</label>
+        <select class="form-control" id="inv-statut">
+          <option value="brouillon">Brouillon</option>
+          <option value="envoyee">Envoyée (marquer comme envoyée)</option>
+          <option value="payee">Payée</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="FP.closeModal('modal-invoice')">Annuler</button>
+      <button class="btn btn-ghost" onclick="saveInvoice('brouillon')">Sauver brouillon</button>
+      <button class="btn btn-navy" onclick="downloadFacturX()">⬇ Télécharger Factur-X XML</button>
+      <button class="btn btn-primary" onclick="saveInvoice(null)">Enregistrer la facture</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APERÇU FACTURE -->
+<div class="modal-overlay" id="modal-view" onclick="if(event.target===this)FP.closeModal('modal-view')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div><h3 id="view-title">Facture</h3></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="downloadPDF()">⬇ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="printInvoice()">🖨 Imprimer</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadFacturXView()">⬇ Factur-X</button>
+        <button class="btn btn-navy btn-sm" id="btn-send-email" onclick="sendInvoiceByEmail()">
+          <svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Envoyer
+        </button>
+        <button class="modal-close" onclick="FP.closeModal('modal-view')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="view-body" style="font-size:.88rem"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="assets/app.js"></script>
+<script>
+FP.renderSidebar('factures');
+let currentFilter = 'all';
+let editingId = null;
+
+function setFilter(el, f) {
+  currentFilter = f;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const search = document.getElementById('search').value.toLowerCase();
+  let invs = FP.getInvoices();
+  if (currentFilter !== 'all') invs = invs.filter(i=>i.statut===currentFilter);
+  if (search) invs = invs.filter(i=>
+    (i.clientNom||'').toLowerCase().includes(search)||
+    (i.numero||'').toLowerCase().includes(search)||
+    (i.objet||'').toLowerCase().includes(search)
+  );
+  invs.sort((a,b)=>new Date(b.dateEmission)-new Date(a.dateEmission));
+  const total = invs.reduce((s,i)=>s+i.montantTTC,0);
+  document.getElementById('total-label').textContent = `${invs.length} facture(s) · ${FP.money(total)}`;
+  const all = FP.getInvoices();
+  document.getElementById('cnt-all').textContent = `(${all.length})`;
+  document.getElementById('inv-body').innerHTML = invs.length ? invs.map(inv=>{
+    const late = inv.statut==='retard'?FP.daysLate(inv.dateEcheance):0;
+    return `<tr>
+      <td><strong style="color:var(--navy)">${inv.numero}</strong></td>
+      <td>${inv.clientNom}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${inv.objet}">${inv.objet}</td>
+      <td>${FP.money(inv.montantHT)}</td>
+      <td><strong>${FP.money(inv.montantTTC)}</strong></td>
+      <td>${FP.dateStr(inv.dateEmission)}</td>
+      <td>${FP.dateStr(inv.dateEcheance)}${late>0?`<div class="days-late">+${late} j</div>`:''}</td>
+      <td><span class="badge ${FP.statusClass[inv.statut]}">${FP.statusLabel[inv.statut]}</span></td>
+      <td>${inv.factureX?'<span class="facturx-badge"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Factur-X</span>':'<span style="color:var(--text-muted);font-size:.78rem">PDF simple</span>'}</td>
+      <td><div class="row-actions" style="justify-content:flex-end">
+        <button class="btn btn-icon btn-sm" onclick="viewInvoice('${inv.id}')" title="Voir">👁</button>
+        <button class="btn btn-icon btn-sm" onclick="editInvoice('${inv.id}')" title="Modifier">✏️</button>
+        ${inv.statut==='retard'?`<button class="btn btn-sm" style="background:rgba(212,133,59,.1);color:var(--orange);font-size:.75rem" onclick="window.location.href='relances.html?id=${inv.id}'">Relancer</button>`:''}
+        ${inv.statut!=='payee'&&inv.statut!=='retard'?`<button class="btn btn-success btn-sm" onclick="markPaid('${inv.id}')">✓ Payée</button>`:''}
+        <button class="btn btn-danger btn-sm" onclick="delInv('${inv.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg><h4>Aucune facture</h4><p>Créez votre première facture Factur-X</p><button class="btn btn-primary" onclick="FP.openModal('modal-invoice')">+ Nouvelle facture</button></div></td></tr>`;
+}
+
+function openNew() {
+  editingId = null;
+  lignes = [{ description: '', qte: 1, prixHT: 0 }];
+  document.getElementById('modal-inv-title').textContent = 'Nouvelle facture';
+  document.getElementById('inv-id').value = '';
+  document.getElementById('inv-numero').value = FP.nextInvoiceNum();
+  document.getElementById('inv-date-emission').value = new Date().toISOString().split('T')[0];
+  const ec = new Date(); ec.setDate(ec.getDate() + 30);
+  document.getElementById('inv-date-echeance').value = ec.toISOString().split('T')[0];
+  document.getElementById('inv-client').value = '';
+  document.getElementById('inv-tva').value = '20';
+  document.getElementById('inv-notes').value = '';
+  document.getElementById('inv-statut').value = 'brouillon';
+  populateClients();
+  renderLignes();
+  FP.openModal('modal-invoice');
+}
+
+function editInvoice(id) {
+  const inv = FP.getInvoice(id);
+  if (!inv) return;
+  editingId = id;
+  // Charger les lignes : si l'invoice a un champ lignes JSON, l'utiliser ; sinon créer une ligne depuis objet/ht
+  try {
+    lignes = inv.lignes ? JSON.parse(inv.lignes) : [{ description: inv.objet || '', qte: 1, prixHT: inv.montantHT || 0 }];
+  } catch(e) {
+    lignes = [{ description: inv.objet || '', qte: 1, prixHT: inv.montantHT || 0 }];
+  }
+  if (!lignes.length) lignes = [{ description: inv.objet || '', qte: 1, prixHT: inv.montantHT || 0 }];
+  document.getElementById('modal-inv-title').textContent = `Modifier ${inv.numero}`;
+  document.getElementById('inv-id').value = id;
+  document.getElementById('inv-numero').value = inv.numero;
+  document.getElementById('inv-date-emission').value = inv.dateEmission;
+  document.getElementById('inv-date-echeance').value = inv.dateEcheance;
+  document.getElementById('inv-tva').value = inv.tva;
+  document.getElementById('inv-notes').value = inv.notes || '';
+  document.getElementById('inv-statut').value = inv.statut;
+  populateClients(inv.clientId);
+  renderLignes();
+  FP.openModal('modal-invoice');
+}
+
+function populateClients(selectedId) {
+  const sel = document.getElementById('inv-client');
+  const clients = FP.getClients();
+  sel.innerHTML = '<option value="">— Sélectionner un client —</option>' +
+    clients.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.nom}</option>`).join('');
+}
+
+function fillClientData() {
+  const cid = document.getElementById('inv-client').value;
+  if (!cid) return;
+  const client = FP.getClient(cid);
+  if (!client) return;
+  const ec = new Date();
+  ec.setDate(ec.getDate() + (client.delaiPaiement||30));
+  document.getElementById('inv-date-echeance').value = ec.toISOString().split('T')[0];
+}
+
+// ─── Lignes de facturation ────────────────────────────────────────────────────
+let lignes = []; // [{ description, qte, prixHT }]
+
+function renderLignes() {
+  document.getElementById('lignes-body').innerHTML = lignes.map((l, i) => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 12px">
+        <input class="form-control" style="padding:6px 10px;font-size:.85rem" placeholder="Description de la prestation…"
+          value="${l.description.replace(/"/g,'&quot;')}" oninput="lignes[${i}].description=this.value;updateTotals()"/>
+      </td>
+      <td style="padding:6px 10px">
+        <input type="number" class="form-control" style="padding:6px 8px;font-size:.85rem;text-align:right" min="0.01" step="0.01"
+          value="${l.qte}" oninput="lignes[${i}].qte=parseFloat(this.value)||1;updateTotals()"/>
+      </td>
+      <td style="padding:6px 10px">
+        <input type="number" class="form-control" style="padding:6px 8px;font-size:.85rem;text-align:right" min="0" step="0.01"
+          value="${l.prixHT}" oninput="lignes[${i}].prixHT=parseFloat(this.value)||0;updateTotals()"/>
+      </td>
+      <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--navy);white-space:nowrap">
+        ${FP.money(l.qte * l.prixHT)}
+      </td>
+      <td style="padding:6px 8px;text-align:center">
+        ${lignes.length > 1 ? `<button type="button" onclick="removeLigne(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:2px 4px" title="Supprimer">×</button>` : ''}
+      </td>
+    </tr>`).join('');
+  updateTotals();
+}
+
+function addLigne() {
+  lignes.push({ description: '', qte: 1, prixHT: 0 });
+  renderLignes();
+  // Focus la dernière description
+  const inputs = document.querySelectorAll('#lignes-body input[placeholder]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function removeLigne(i) {
+  lignes.splice(i, 1);
+  renderLignes();
+}
+
+function updateTotals() {
+  const ht = lignes.reduce((s, l) => s + (l.qte * l.prixHT), 0);
+  const tva = parseFloat(document.getElementById('inv-tva').value) || 0;
+  const ttc = ht * (1 + tva / 100);
+  document.getElementById('ht-display').textContent = FP.money(ht);
+  document.getElementById('tva-display').textContent = FP.money(ttc - ht);
+  document.getElementById('tva-label').textContent = `TVA (${tva}%)`;
+  document.getElementById('ttc-display').textContent = FP.money(ttc);
+  // Sync hidden fields for backward compat
+  document.getElementById('inv-ht').value = ht;
+  document.getElementById('inv-objet').value = lignes.map(l => l.description).filter(Boolean).join(' / ') || 'Prestation';
+}
+
+function calcTTC() { updateTotals(); }
+
+function saveInvoice(forceStatut) {
+  const cid = document.getElementById('inv-client').value;
+  const client = cid ? FP.getClient(cid) : null;
+  const tva = parseFloat(document.getElementById('inv-tva').value) || 0;
+  const ht = lignes.reduce((s, l) => s + (l.qte * l.prixHT), 0);
+  if (!cid) { FP.toast('Veuillez sélectionner un client', 'error'); return; }
+  if (!ht || ht <= 0) { FP.toast('Veuillez saisir au moins une ligne avec un montant', 'error'); return; }
+  const hasEmptyDesc = lignes.some(l => !l.description.trim());
+  if (hasEmptyDesc) { FP.toast('Chaque ligne doit avoir une description', 'error'); return; }
+  const objet = lignes.map(l => l.description).filter(Boolean).join(' / ');
+  const data = {
+    clientId: cid, clientNom: client?.nom || '',
+    numero: document.getElementById('inv-numero').value,
+    dateEmission: document.getElementById('inv-date-emission').value,
+    dateEcheance: document.getElementById('inv-date-echeance').value,
+    objet,
+    lignes: JSON.stringify(lignes),
+    montantHT: ht, tva, montantTTC: ht * (1 + tva / 100),
+    notes: document.getElementById('inv-notes').value,
+    statut: forceStatut || document.getElementById('inv-statut').value,
+    factureX: true,
+  };
+  if (editingId) { FP.updateInvoice(editingId, data); FP.toast('Facture mise à jour !'); }
+  else { FP.addInvoice(data); FP.toast('Facture créée et conforme Factur-X !'); }
+  FP.closeModal('modal-invoice');
+  renderTable();
+}
+
+function markPaid(id) {
+  FP.updateInvoice(id, {statut:'payee'});
+  FP.toast('Facture marquée comme payée ✓', 'success');
+  renderTable();
+}
+
+function delInv(id) {
+  const inv = FP.getInvoice(id);
+  FP.confirm(`Supprimer la facture ${inv?.numero} ? Cette action est irréversible.`, ()=>{
+    FP.deleteInvoice(id);
+    FP.toast('Facture supprimée', 'info');
+    renderTable();
+  });
+}
+
+function viewInvoice(id) {
+  const inv = FP.getInvoice(id);
+  const user = FP.getUser();
+  if (!inv) return;
+  window._viewInvId = id;
+  document.getElementById('view-title').textContent = inv.numero;
+  document.getElementById('view-body').innerHTML = `
+    <div style="border:2px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="background:var(--navy);color:white;padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:1.3rem;font-weight:800;margin-bottom:4px">FACTURE</div><div style="font-size:1.1rem;color:rgba(255,255,255,.7)">${inv.numero}</div></div>
+        <div style="text-align:right"><div style="font-weight:700;font-size:1rem">${user.entreprise}</div><div style="font-size:.82rem;color:rgba(255,255,255,.65);margin-top:4px">${user.adresse}</div><div style="font-size:.82rem;color:rgba(255,255,255,.65)">SIREN : ${user.siren}</div></div>
+      </div>
+      <div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div><div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">Facturé à</div><div style="font-weight:700;color:var(--navy)">${inv.clientNom}</div></div>
+        <div style="text-align:right"><div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">Informations</div>
+          <div>Date d'émission : <strong>${FP.dateStr(inv.dateEmission)}</strong></div>
+          <div>Date d'échéance : <strong>${FP.dateStr(inv.dateEcheance)}</strong></div>
+          <div>Statut : <span class="badge ${FP.statusClass[inv.statut]}">${FP.statusLabel[inv.statut]}</span></div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin:0">
+        <thead><tr style="background:var(--bg-light)">
+          <th style="padding:10px 28px;text-align:left;font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase">Désignation</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;width:60px">Qté</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;width:100px">P.U. HT</th>
+          <th style="padding:10px 28px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;width:110px">Total HT</th>
+        </tr></thead>
+        <tbody>${(() => {
+          let rows;
+          try { rows = inv.lignes ? JSON.parse(inv.lignes) : null; } catch(e) { rows = null; }
+          if (!rows || !rows.length) rows = [{ description: inv.objet, qte: 1, prixHT: inv.montantHT }];
+          return rows.map(l => `<tr style="border-top:1px solid var(--border)">
+            <td style="padding:12px 28px">${l.description}</td>
+            <td style="padding:12px 14px;text-align:right;color:var(--text-muted)">${l.qte}</td>
+            <td style="padding:12px 14px;text-align:right;color:var(--text-muted)">${FP.money(l.prixHT)}</td>
+            <td style="padding:12px 28px;text-align:right;font-weight:700">${FP.money(l.qte * l.prixHT)}</td>
+          </tr>`).join('');
+        })()}</tbody>
+      </table>
+      <div style="padding:16px 28px;border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div style="display:flex;gap:40px"><span style="color:var(--text-muted)">Total HT</span><span style="font-weight:700">${FP.money(inv.montantHT)}</span></div>
+        <div style="display:flex;gap:40px"><span style="color:var(--text-muted)">TVA (${inv.tva}%)</span><span style="font-weight:700">${FP.money(inv.montantTTC-inv.montantHT)}</span></div>
+        <div style="display:flex;gap:40px;font-size:1.1rem;padding-top:8px;border-top:1px solid var(--border);margin-top:4px"><span style="font-weight:700;color:var(--navy)">Total TTC</span><span style="font-weight:800;color:var(--navy)">${FP.money(inv.montantTTC)}</span></div>
+      </div>
+      <div style="background:var(--bg-light);padding:16px 28px;font-size:.82rem;color:var(--text-muted)">
+        ${inv.notes||`Paiement par virement bancaire. IBAN : ${user.iban||'—'}`}
+        <div style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="background:rgba(26,122,61,.1);color:var(--green);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:100px">✓ Factur-X conforme</span><span>Format certifié réforme 2026</span></div>
+      </div>
+    </div>
+  `;
+  FP.openModal('modal-view');
+}
+
+function printInvoice() { window.print(); }
+
+async function sendInvoiceByEmail() {
+  const inv = FP.getInvoice(window._viewInvId);
+  const user = FP.getUser();
+  if (!inv) return;
+  const client = FP.getClient(inv.clientId);
+  const clientEmail = client?.email;
+  if (!clientEmail) {
+    FP.toast('Ce client n\'a pas d\'adresse email renseignée', 'error');
+    return;
+  }
+  const btn = document.getElementById('btn-send-email');
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const res = await fetch(`/api/invoices/${inv.id}/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('fp_token')}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    FP.toast(`Facture ${inv.numero} envoyée à ${clientEmail} ✓`);
+    // Marquer comme envoyée si brouillon
+    if (inv.statut === 'brouillon') {
+      FP.updateInvoice(inv.id, { statut: 'envoyee' });
+      renderTable();
+    }
+  } catch(err) {
+    FP.toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Envoyer';
+  }
+}
+
+async function downloadPDF() {
+  const inv = FP.getInvoice(window._viewInvId);
+  const user = FP.getUser();
+  if (!inv) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const navy = [27, 58, 75]; const orange = [212, 133, 59]; const green = [26, 122, 61];
+  const grey = [107, 122, 138]; const lightbg = [244, 247, 250];
+  // Header band
+  doc.setFillColor(...navy); doc.rect(0, 0, 210, 38, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(22); doc.setFont('helvetica','bold');
+  doc.text('FACTURE', 14, 16);
+  doc.setFontSize(13); doc.setFont('helvetica','normal');
+  doc.text(inv.numero, 14, 25);
+  // Logo ou nom entreprise dans le header
+  if (user.logo) {
+    try {
+      // Déduire le format depuis le data URL (jpeg, png, gif, webp)
+      const fmt = (user.logo.match(/^data:image\/(\w+);/)||[])[1]?.toUpperCase()||'PNG';
+      const safeFormat = ['JPEG','PNG','GIF','WEBP'].includes(fmt) ? fmt : 'PNG';
+      doc.addImage(user.logo, safeFormat, 148, 4, 50, 28, '', 'FAST');
+    } catch(e) {
+      // Fallback texte si le logo est invalide
+      doc.setFontSize(10); doc.text(user.entreprise || '', 196, 14, {align:'right', maxWidth:60});
+    }
+  } else {
+    doc.setFontSize(10); doc.text(user.entreprise || '', 196, 14, {align:'right', maxWidth:60});
+    if (user.adresse) doc.text(user.adresse.substring(0,50), 196, 20, {align:'right'});
+    if (user.siren) doc.text(`SIREN : ${user.siren}`, 196, 26, {align:'right'});
+  }
+  // Billing info
+  doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.setTextColor(...grey); doc.text('FACTURÉ À', 14, 50);
+  doc.setTextColor(50,50,50); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text(inv.clientNom, 14, 57);
+  // Dates
+  doc.setTextColor(...grey); doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('DATE D\'ÉMISSION', 130, 50);
+  doc.text('DATE D\'ÉCHÉANCE', 170, 50);
+  doc.setTextColor(50,50,50); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text(FP.dateStr(inv.dateEmission), 130, 57);
+  doc.text(FP.dateStr(inv.dateEcheance), 170, 57);
+  // Statut badge
+  const sc = {payee:green, envoyee:navy, retard:[184,53,42], brouillon:grey}[inv.statut]||grey;
+  doc.setFillColor(...sc); doc.roundedRect(130, 60, 30, 6, 1.5, 1.5, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+  doc.text(FP.statusLabel[inv.statut], 145, 64.5, {align:'center'});
+  // Line items table header
+  doc.setFillColor(...lightbg); doc.rect(14, 72, 182, 10, 'F');
+  doc.setTextColor(...grey); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('DÉSIGNATION', 18, 78.5);
+  doc.text('QTÉ', 145, 78.5, {align:'right'});
+  doc.text('P.U. HT', 165, 78.5, {align:'right'});
+  doc.text('TOTAL HT', 196, 78.5, {align:'right'});
+  // Line items — support multi-lignes
+  let lignesPDF;
+  try { lignesPDF = inv.lignes ? JSON.parse(inv.lignes) : null; } catch(e) { lignesPDF = null; }
+  if (!lignesPDF || !lignesPDF.length) lignesPDF = [{ description: inv.objet || '', qte: 1, prixHT: inv.montantHT }];
+  let itemY = 88;
+  lignesPDF.forEach((l, i) => {
+    if (i > 0) { doc.setDrawColor(235,238,242); doc.line(14, itemY - 2, 196, itemY - 2); }
+    doc.setTextColor(50,50,50); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    const descLines = doc.splitTextToSize(l.description, 108);
+    doc.text(descLines, 18, itemY);
+    doc.text(String(l.qte), 147, itemY, {align:'right'});
+    doc.text(FP.money(l.prixHT), 167, itemY, {align:'right'});
+    doc.setFont('helvetica','bold');
+    doc.text(FP.money(l.qte * l.prixHT), 196, itemY, {align:'right'});
+    itemY += Math.max(7, descLines.length * 5);
+  });
+  // Separator
+  doc.setDrawColor(...lightbg); doc.setLineWidth(0.8);
+  doc.line(14, itemY + 2, 196, itemY + 2);
+  // Totals
+  let ty = itemY + 10;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...grey);
+  doc.text('Total HT', 130, ty); doc.setTextColor(50,50,50);
+  doc.text(FP.money(inv.montantHT), 196, ty, {align:'right'}); ty += 7;
+  doc.setTextColor(...grey); doc.text(`TVA (${inv.tva}%)`, 130, ty); doc.setTextColor(50,50,50);
+  doc.text(FP.money(inv.montantTTC - inv.montantHT), 196, ty, {align:'right'}); ty += 4;
+  doc.setDrawColor(220,220,220); doc.line(130, ty, 196, ty); ty += 6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...navy);
+  doc.text('Total TTC', 130, ty);
+  doc.text(FP.money(inv.montantTTC), 196, ty, {align:'right'});
+  // Footer — positionné après les totaux (min 255mm pour laisser de la place)
+  const footerY = Math.max(ty + 18, 252);
+  doc.setFillColor(...lightbg); doc.rect(0, footerY, 210, 297 - footerY, 'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...grey);
+  const note = inv.notes || (user.iban ? `Paiement par virement bancaire — IBAN : ${user.iban}` : 'Paiement par virement bancaire');
+  doc.text(note.substring(0,90), 14, footerY + 8);
+  doc.setTextColor(...green); doc.setFont('helvetica','bold');
+  doc.text('✓ Facture Factur-X conforme — Réforme 2026', 14, footerY + 16);
+  doc.setTextColor(...grey); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text(`${user.entreprise || ''} — ${user.adresse || ''}`, 14, footerY + 22);
+  // Save
+  doc.save(`${inv.numero}.pdf`);
+  FP.toast(`${inv.numero}.pdf téléchargé !`);
+}
+
+function downloadFacturX() {
+  const cid = document.getElementById('inv-client').value;
+  const tva = parseFloat(document.getElementById('inv-tva').value)||0;
+  const ht = lignes.reduce((s,l)=>s+(l.qte*l.prixHT),0);
+  if (!cid||!ht) { FP.toast('Remplissez le client et les lignes de facturation', 'error'); return; }
+  const inv = {
+    numero: document.getElementById('inv-numero').value,
+    clientId: cid, clientNom: FP.getClient(cid)?.nom||'',
+    dateEmission: document.getElementById('inv-date-emission').value,
+    dateEcheance: document.getElementById('inv-date-echeance').value,
+    objet: lignes.map(l=>l.description).filter(Boolean).join(' / '),
+    lignes: JSON.stringify(lignes),
+    montantHT: ht, tva, montantTTC: ht*(1+tva/100),
+  };
+  const xml = FP.generateFacturX(inv);
+  const a = document.createElement('a');
+  a.href = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+  a.download = `${inv.numero}-facturx.xml`;
+  a.click();
+  FP.toast('Factur-X XML téléchargé !');
+}
+
+function downloadFacturXView() {
+  const inv = FP.getInvoice(window._viewInvId);
+  if (!inv) return;
+  const xml = FP.generateFacturX(inv);
+  const a = document.createElement('a');
+  a.href = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+  a.download = `${inv.numero}-facturx.xml`;
+  a.click();
+  FP.toast('Factur-X XML téléchargé !');
+}
+
+// URL params
+const urlP = new URLSearchParams(location.search);
+populateClients();
+// Toujours associer le bouton "Nouvelle facture" à openNew()
+document.querySelector('[onclick*="openModal"]').onclick = openNew;
+if (urlP.get('new')) {
+  openNew();
+  // Pré-sélectionner le client si passé en param
+  if (urlP.get('client')) {
+    setTimeout(() => { document.getElementById('inv-client').value = urlP.get('client'); fillClientData(); }, 50);
+  }
+} else if (urlP.get('id')) {
+  // Ouvrir la vue de la facture ciblée (ex: depuis encours ou relances)
+  setTimeout(() => {
+    const inv = FP.getInvoice(urlP.get('id'));
+    if (inv) viewInvoice(urlP.get('id'));
+  }, 100);
+}
+renderTable();
+</script>
+</body>
+</html>

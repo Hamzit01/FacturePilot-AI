@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/hamza/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/c3b56ac6-1600-4d67-80f1-9ecc75acee52/c435c602-cec7-45e7-b1d8-78ae9a8f2aad/skills/docx/**)",
+      "Bash(pandoc \"/Users/hamza/Downloads/FacturePilot_AI_BusinessPlan_Hamza_Hadjadj \\(1\\).docx\" -t plain)",
+      "Bash(brew install:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(python3)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const db = require\\('better-sqlite3'\\); console.log\\('ok'\\)\")",
+      "Bash(pkill -f \"python3 -m http.server\")",
+      "Bash(pkill -f \"node backend/server.js\")",
+      "Bash(node backend/server.js)",
+      "Bash(curl -s http://localhost:3333/api/health)",
+      "Bash(npm rebuild:*)",
+      "Bash(npm show:*)",
+      "Bash(node -e \"require\\('better-sqlite3'\\); console.log\\('ok'\\)\")",
+      "Bash(node -e \"const db = require\\('better-sqlite3'\\); const inst = new db\\(':memory:'\\); console.log\\('real test ok'\\);\")",
+      "Bash(bun --version)",
+      "Bash(node -e \"const { DatabaseSync } = require\\('node:sqlite'\\); const db = new DatabaseSync\\(':memory:'\\); console.log\\('node:sqlite works!'\\);\")",
+      "Bash(curl -s -X POST http://localhost:3333/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"hamza@facturepilot.ai\",\"password\":\"demo1234\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f\\\\\"Registered: {d['user']['prenom']} {d['user']['nom']} — token present: {'token' in d}\\\\\"\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} invoices in DB'\\)\")",
+      "Bash(python3 -c \"import sys,json; [print\\(f\\\\\"{i['id']}. {i['numero']} — {i['clientNom']}\\\\\"\\) for i in json.load\\(sys.stdin\\)]\")",
+      "Bash(python3 -c \"import sys,json; print\\(len\\(json.load\\(sys.stdin\\)\\), 'invoices'\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(pkill -f \"node.*server.js\")",
+      "Bash(node --no-warnings backend/server.js)",
+      "Bash(python3 -c \" import sys, json lines = sys.stdin.read\\(\\).strip\\(\\).split\\('\\\\n'\\) for line in lines[-30:]: try: obj = json.loads\\(line\\) role = obj.get\\('role', obj.get\\('type', ''\\)\\) if role == 'user': content = obj.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\) and c.get\\('type'\\) == 'text': print\\('USER:', c['text'][:500]\\) elif isinstance\\(content, str\\): print\\('USER:', content[:500]\\) elif role == 'assistant': content = obj.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\) and c.get\\('type'\\) == 'text': print\\('ASSISTANT:', c['text'][:500]\\) elif isinstance\\(content, str\\): print\\('ASSISTANT:', content[:500]\\) except: pass \")",
+      "Bash(python3 -c \" import sys, json data = sys.stdin.read\\(\\).strip\\(\\).split\\('\\\\n'\\) for line in data[-50:]: try: obj = json.loads\\(line\\) t = obj.get\\('type', ''\\) role = obj.get\\('role', ''\\) if t == 'user' or role == 'user': content = obj.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\): if c.get\\('type'\\) == 'text': print\\('USER TEXT:', c['text'][:300]\\) elif c.get\\('type'\\) == 'tool_result': print\\('TOOL RESULT:', str\\(c\\)[:200]\\) elif content: print\\('USER:', str\\(content\\)[:300]\\) elif t == 'assistant' or role == 'assistant': content = obj.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\): if c.get\\('type'\\) == 'text': print\\('ASST TEXT:', c['text'][:300]\\) elif c.get\\('type'\\) == 'tool_use': print\\('TOOL USE:', c.get\\('name', ''\\), str\\(c.get\\('input', ''\\)\\)[:200]\\) elif content: print\\('ASST:', str\\(content\\)[:300]\\) except Exception as e: pass \")",
+      "Bash(node --no-warnings -e \"require\\('./services/mailer'\\); console.log\\('mailer OK'\\)\")",
+      "Bash(node --no-warnings -e \"require\\('./routes/user'\\); console.log\\('user route OK'\\)\")",
+      "Bash(node --no-warnings -e \"require\\('./routes/invoices'\\); console.log\\('invoices route OK'\\)\")",
+      "Bash(node --no-warnings -e \"require\\('/Users/hamza/Factur Pilot AI/backend/routes/auth'\\)\")",
+      "Bash(node --no-warnings -e ':*)",
+      "Bash(npm start:*)",
+      "Bash(node --no-warnings -e \"require\\('/Users/hamza/Factur Pilot AI/backend/routes/invoices'\\)\")",
+      "Bash(node --no-warnings -e \"require\\('/Users/hamza/Factur Pilot AI/backend/routes/user'\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(timeout 5 node server.js)"
+    ]
+  }
+}

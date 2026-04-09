@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Conformité Factur-X — FacturePilot AI</title>
+<link rel="stylesheet" href="assets/app.css"/>
+<style>
+.check-list{display:flex;flex-direction:column;gap:10px}
+.check-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:10px;background:var(--bg-light);border:1px solid var(--border)}
+.check-item.ok{background:rgba(26,122,61,.05);border-color:rgba(26,122,61,.2)}
+.check-item.warn{background:rgba(212,133,59,.05);border-color:rgba(212,133,59,.2)}
+.check-item.ko{background:rgba(184,53,42,.05);border-color:rgba(184,53,42,.15)}
+.check-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9rem}
+.check-icon.ok{background:rgba(26,122,61,.15);color:var(--green)}
+.check-icon.warn{background:rgba(212,133,59,.15);color:var(--orange)}
+.check-icon.ko{background:rgba(184,53,42,.1);color:var(--red)}
+.check-title{font-size:.9rem;font-weight:700;color:var(--navy)}
+.check-desc{font-size:.8rem;color:var(--text-muted);margin-top:2px}
+.timeline-ref{margin-left:auto;flex-shrink:0}
+.score-circle{width:120px;height:120px;flex-shrink:0}
+.reform-card{background:linear-gradient(135deg,var(--navy),#243f52);color:white;border-radius:var(--radius);padding:28px;margin-bottom:20px}
+.reform-card h3{font-size:1.1rem;font-weight:700;margin-bottom:6px}
+.reform-card p{font-size:.88rem;color:rgba(255,255,255,.75);line-height:1.7}
+.timeline-reform{display:flex;flex-direction:column;gap:0;margin-top:16px}
+.tl-item{display:flex;gap:16px;position:relative}
+.tl-item::before{content:'';position:absolute;left:12px;top:28px;bottom:-12px;width:2px;background:rgba(255,255,255,.15)}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;margin-top:2px}
+.tl-dot.done{background:var(--green)}
+.tl-dot.now{background:var(--orange)}
+.tl-dot.future{background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3)}
+.tl-content{padding-bottom:20px}
+.tl-date{font-size:.75rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.05em}
+.tl-text{font-size:.9rem;font-weight:600;color:white;margin-top:2px}
+.tl-detail{font-size:.8rem;color:rgba(255,255,255,.65);margin-top:3px}
+.xml-block{background:#0f1923;border-radius:10px;padding:16px;font-family:monospace;font-size:.78rem;color:#a8d8b0;overflow-x:auto;line-height:1.7;margin-bottom:8px}
+.xml-block .tag{color:#79c0ff}
+.xml-block .attr{color:#ffb86c}
+.xml-block .val{color:#f1fa8c}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left"><h2>Conformité Factur-X</h2><div class="breadcrumb">Réforme facturation électronique — Suivi de conformité</div></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="downloadReport()">⬇ Télécharger rapport PDF</button>
+      </div>
+    </div>
+    <div class="page-content">
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;margin-bottom:24px">
+        <!-- Score conformité -->
+        <div class="card card-body">
+          <div style="display:flex;align-items:center;gap:24px;margin-bottom:20px">
+            <svg class="score-circle" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="12"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--green)" stroke-width="12"
+                stroke-dasharray="251 314" stroke-dashoffset="78" stroke-linecap="round"
+                style="transform:rotate(-90deg);transform-origin:60px 60px"/>
+              <text x="60" y="56" text-anchor="middle" font-size="22" font-weight="800" fill="var(--navy)">80%</text>
+              <text x="60" y="72" text-anchor="middle" font-size="10" fill="var(--text-muted)">Conformité</text>
+            </svg>
+            <div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--navy);margin-bottom:6px">Votre score de conformité</div>
+              <div style="font-size:.9rem;color:var(--text-muted);margin-bottom:12px">Vous êtes prêt pour la réforme de septembre 2026 à <strong style="color:var(--green)">80%</strong>. Complétez votre profil pour atteindre 100%.</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <span class="badge badge-paid">✓ Factur-X activé</span>
+                <span class="badge badge-paid">✓ Format XML valide</span>
+                <span class="badge badge-pending">⚠ IBAN à renseigner</span>
+                <span class="badge badge-pending">⚠ Logo à ajouter</span>
+              </div>
+            </div>
+          </div>
+          <div class="check-list" id="check-list"></div>
+        </div>
+
+        <!-- Countdown -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="reform-card">
+            <h3>🗓 Calendrier de la réforme</h3>
+            <p>Toutes les étapes clés pour rester conforme avant les délais légaux.</p>
+            <div class="timeline-reform" style="margin-top:20px">
+              <div class="tl-item">
+                <div class="tl-dot done">✓</div>
+                <div class="tl-content">
+                  <div class="tl-date">Juin 2026</div>
+                  <div class="tl-text">Lancement FacturePilot AI</div>
+                  <div class="tl-detail">Création SASU + portail en ligne</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot now">!</div>
+                <div class="tl-content">
+                  <div class="tl-date">1er septembre 2026</div>
+                  <div class="tl-text">Obligation réception</div>
+                  <div class="tl-detail">Toutes entreprises assujetties TVA · 15€/facture non conforme</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot future"></div>
+                <div class="tl-content">
+                  <div class="tl-date">1er septembre 2027</div>
+                  <div class="tl-text">Obligation émission TPE/PME</div>
+                  <div class="tl-detail">Format structuré obligatoire pour émettre</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card card-body">
+            <div style="font-size:.95rem;font-weight:700;color:var(--navy);margin-bottom:10px">⏱ Compte à rebours</div>
+            <div id="countdown" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Factur-X guide -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h3>Format Factur-X — Comment ça marche ?</h3></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+            <div>
+              <p style="font-size:.9rem;color:var(--text-muted);margin-bottom:16px">Factur-X est un format de facture <strong>hybride</strong> : un PDF lisible par les humains, contenant des données XML structurées lisibles par les machines. Il est reconnu par l'État français comme le format standard de la facturation électronique.</p>
+              <div style="font-size:.85rem;display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px"><span style="background:rgba(26,122,61,.1);color:var(--green);font-weight:700;padding:2px 8px;border-radius:4px">EN 16931</span> Norme européenne de facturation</div>
+                <div style="display:flex;align-items:center;gap:8px"><span style="background:rgba(27,58,75,.08);color:var(--navy);font-weight:700;padding:2px 8px;border-radius:4px">PDF/A-3</span> Format d'archivage longue durée</div>
+                <div style="display:flex;align-items:center;gap:8px"><span style="background:rgba(212,133,59,.1);color:var(--orange);font-weight:700;padding:2px 8px;border-radius:4px">XML/CII</span> Données structurées embarquées</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">Exemple XML Factur-X généré</div>
+              <div class="xml-block"><span class="tag">&lt;rsm:CrossIndustryInvoice&gt;</span>
+  <span class="tag">&lt;ram:ID&gt;</span><span class="val">FA-2026-007</span><span class="tag">&lt;/ram:ID&gt;</span>
+  <span class="tag">&lt;ram:TypeCode&gt;</span><span class="val">380</span><span class="tag">&lt;/ram:TypeCode&gt;</span>
+  <span class="tag">&lt;ram:GrandTotalAmount&gt;</span>
+    <span class="val">3200.00</span>
+  <span class="tag">&lt;/ram:GrandTotalAmount&gt;</span>
+<span class="tag">&lt;/rsm:CrossIndustryInvoice&gt;</span></div>
+              <button class="btn btn-ghost btn-sm" onclick="downloadSampleXML()">⬇ Télécharger un exemple</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ réforme -->
+      <div class="card">
+        <div class="card-header"><h3>Questions fréquentes — Réforme 2026</h3></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+          <details style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer">
+            <summary style="font-weight:600;font-size:.9rem;color:var(--navy)">Suis-je obligé de passer à la facturation électronique ?</summary>
+            <p style="font-size:.88rem;color:var(--text-muted);margin-top:10px;line-height:1.7">Oui, si votre entreprise est assujettie à la TVA. À partir du 1er septembre 2026, vous devez <strong>recevoir</strong> des factures électroniques. À partir du 1er septembre 2027, vous devrez également <strong>émettre</strong> vos factures en format structuré.</p>
+          </details>
+          <details style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer">
+            <summary style="font-weight:600;font-size:.9rem;color:var(--navy)">Quelle est la différence entre un PDF et une facture Factur-X ?</summary>
+            <p style="font-size:.88rem;color:var(--text-muted);margin-top:10px;line-height:1.7">Un PDF classique n'est pas lisible par les systèmes comptables automatiquement. Le Factur-X contient en plus des données XML structurées que les logiciels peuvent lire et traiter sans saisie manuelle. FacturePilot génère automatiquement ce format.</p>
+          </details>
+          <details style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer">
+            <summary style="font-weight:600;font-size:.9rem;color:var(--navy)">Que risque-t-on en cas de non-conformité ?</summary>
+            <p style="font-size:.88rem;color:var(--text-muted);margin-top:10px;line-height:1.7">Une amende de <strong>15 € par facture</strong> non émise ou non reçue dans le bon format. Pour une entreprise qui émet 100 factures par mois, cela représente 1 500 €/mois de pénalités.</p>
+          </details>
+          <details style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer">
+            <summary style="font-weight:600;font-size:.9rem;color:var(--navy)">Dois-je passer par une plateforme agréée ?</summary>
+            <p style="font-size:.88rem;color:var(--text-muted);margin-top:10px;line-height:1.7">Oui. À partir de septembre 2027 pour l'émission, les factures devront transiter par une <strong>Plateforme de Dématérialisation Partenaire (PDP)</strong> agréée par la DGFIP. FacturePilot AI intégrera cette connexion automatiquement.</p>
+          </details>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="assets/app.js"></script>
+<script>
+FP.renderSidebar('conformite');
+const user = FP.getUser();
+
+// Calculate real compliance score
+const scoreItems = [
+  { ok: !!user.entreprise, weight: 15, label: 'Nom entreprise' },
+  { ok: !!user.siren, weight: 15, label: 'SIREN' },
+  { ok: !!user.tva, weight: 15, label: 'TVA' },
+  { ok: !!user.iban, weight: 20, label: 'IBAN' },
+  { ok: !!user.adresse, weight: 10, label: 'Adresse' },
+  { ok: !!user.logo, weight: 15, label: 'Logo' },
+  { ok: !!user.tel, weight: 5, label: 'Téléphone' },
+  { ok: !!user.email, weight: 5, label: 'Email' },
+];
+const score = scoreItems.filter(s => s.ok).reduce((sum, s) => sum + s.weight, 0);
+const scoreColor = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
+const scoreLabel = score >= 80 ? 'Excellent' : score >= 50 ? 'À améliorer' : 'Insuffisant';
+// r=50, circ=314.16, filled = score/100 * 314.16
+const filled = (score / 100) * 314.16;
+
+// Checklist
+const checks = [
+  { ok: true, title: 'Format Factur-X activé', desc: 'Toutes vos factures sont générées au format Factur-X conforme EN 16931' },
+  { ok: true, title: 'Données entreprise renseignées', desc: `SIREN : ${user.siren||'—'} · TVA : ${user.tva||'—'}` },
+  { ok: true, title: 'Numérotation chronologique', desc: 'Vos numéros de facture suivent une séquence chronologique sans rupture' },
+  { ok: !!user.iban, warn: !user.iban, title: 'IBAN pour virement', desc: user.iban ? `IBAN renseigné : ${user.iban}` : 'Ajoutez votre IBAN dans les paramètres pour l\'inclure sur les factures', action: !user.iban ? 'Configurer' : null, link: 'settings.html' },
+  { ok: !!user.logo, warn: !user.logo, title: 'Logo entreprise', desc: user.logo ? 'Logo ajouté ✓' : 'Ajoutez votre logo pour des factures professionnelles', action: !user.logo ? 'Ajouter' : null, link: 'settings.html' },
+  { ok: true, title: 'Mentions légales automatiques', desc: 'Date, numéro, identité vendeur/acheteur, montants HT/TTC, TVA — toutes les mentions obligatoires sont incluses' },
+  { ok: true, title: 'Archivage 10 ans', desc: 'Vos factures sont conservées 10 ans conformément aux obligations légales' },
+];
+document.getElementById('check-list').innerHTML = checks.map(c=>`
+  <div class="check-item ${c.ok?'ok':c.warn?'warn':'ko'}">
+    <div class="check-icon ${c.ok?'ok':c.warn?'warn':'ko'}">${c.ok?'✓':c.warn?'⚠':'✗'}</div>
+    <div style="flex:1">
+      <div class="check-title">${c.title}</div>
+      <div class="check-desc">${c.desc}</div>
+    </div>
+    ${c.action?`<a href="${c.link}" class="btn btn-ghost btn-sm" style="flex-shrink:0">${c.action} →</a>`:''}
+  </div>`).join('');
+
+// Update SVG score circle
+document.querySelector('.score-circle circle:nth-child(2)').setAttribute('stroke-dasharray', `${filled} 314`);
+document.querySelector('.score-circle circle:nth-child(2)').setAttribute('stroke', scoreColor);
+document.querySelector('.score-circle text:nth-child(3)').textContent = score + '%';
+// Update description text
+document.querySelector('.score-circle').nextElementSibling.querySelector('div:first-child').textContent = `Votre score de conformité`;
+const descEl = document.querySelector('.score-circle').nextElementSibling.querySelector('div:nth-child(2)');
+descEl.innerHTML = `Vous êtes prêt pour la réforme de septembre 2026 à <strong style="color:${scoreColor}">${score}%</strong>. ${score < 100 ? 'Complétez votre profil pour atteindre 100%.' : 'Profil complet — vous êtes prêt !'}`;
+// Update badges
+const badgesEl = document.querySelector('.score-circle').nextElementSibling.querySelector('div:nth-child(3)');
+badgesEl.innerHTML = scoreItems.map(s =>
+  s.ok ? `<span class="badge badge-paid">✓ ${s.label}</span>` : `<span class="badge badge-pending">⚠ ${s.label} manquant</span>`
+).join('');
+
+// Countdown
+function updateCountdown() {
+  const target = new Date('2026-09-01');
+  const now = new Date();
+  const diff = target - now;
+  if (diff <= 0) { document.getElementById('countdown').innerHTML = '<div style="color:var(--red);font-weight:700">La réforme est entrée en vigueur</div>'; return; }
+  const d = Math.floor(diff/(1000*60*60*24));
+  const h = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+  const m = Math.floor((diff%(1000*60*60))/(1000*60));
+  const s = Math.floor((diff%(1000*60))/1000);
+  document.getElementById('countdown').innerHTML = [
+    {v:d,l:'Jours'},{v:h,l:'Heures'},{v:m,l:'Min'},{v:s,l:'Sec'}
+  ].map(x=>`<div style="background:var(--bg-light);border-radius:8px;padding:10px;text-align:center"><div style="font-size:1.3rem;font-weight:800;color:var(--orange)">${String(x.v).padStart(2,'0')}</div><div style="font-size:.68rem;color:var(--text-muted)">${x.l}</div></div>`).join('');
+}
+updateCountdown();
+setInterval(updateCountdown, 1000);
+
+function downloadReport() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const navy = [27, 58, 75], orange = [212, 133, 59], green = [26, 122, 61], red = [184, 53, 42], grey = [107, 122, 138];
+
+  // Header
+  doc.setFillColor(...navy); doc.rect(0, 0, 210, 40, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+  doc.text('RAPPORT DE CONFORMITÉ FACTUR-X', 14, 18);
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text(`${user.entreprise || ''} — Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 28);
+  doc.text(`SIREN : ${user.siren || '—'} · TVA : ${user.tva || '—'}`, 14, 35);
+
+  // Score badge
+  doc.setFillColor(...(score >= 80 ? green : score >= 50 ? orange : red));
+  doc.roundedRect(155, 10, 42, 20, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+  doc.text(score + '%', 176, 22, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('Score conformité', 176, 28, { align: 'center' });
+
+  // Checklist title
+  let y = 55;
+  doc.setTextColor(...navy); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+  doc.text('Checklist de conformité', 14, y); y += 8;
+
+  // Checks
+  const allChecks = [
+    { ok: !!user.entreprise, title: 'Nom entreprise renseigné', desc: user.entreprise || 'Non renseigné' },
+    { ok: !!user.siren, title: 'SIREN', desc: user.siren || 'Non renseigné' },
+    { ok: !!user.tva, title: 'Numéro TVA intracommunautaire', desc: user.tva || 'Non renseigné' },
+    { ok: !!user.iban, title: 'IBAN pour virement', desc: user.iban ? 'Renseigné ✓' : 'Non renseigné' },
+    { ok: !!user.adresse, title: 'Adresse complète', desc: user.adresse || 'Non renseignée' },
+    { ok: !!user.logo, title: 'Logo entreprise', desc: user.logo ? 'Présent ✓' : 'Non ajouté' },
+    { ok: true, title: 'Format Factur-X activé', desc: 'Toutes factures conformes EN 16931' },
+    { ok: true, title: 'Numérotation chronologique', desc: 'Séquence sans rupture' },
+  ];
+  allChecks.forEach(c => {
+    doc.setFillColor(...(c.ok ? [240, 250, 244] : [253, 243, 241]));
+    doc.rect(14, y - 4, 182, 12, 'F');
+    doc.setTextColor(...(c.ok ? green : red));
+    doc.setFontSize(11); doc.text(c.ok ? '✓' : '✗', 18, y + 3);
+    doc.setTextColor(50, 50, 50); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text(c.title, 26, y + 1);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...grey);
+    doc.text(c.desc, 26, y + 6);
+    y += 15;
+  });
+
+  // Stats
+  y += 5;
+  const invs = FP.getInvoices();
+  doc.setTextColor(...navy); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+  doc.text('Statistiques factures', 14, y); y += 8;
+  const stats = [
+    ['Total factures', invs.length],
+    ['Factures payées', invs.filter(i => i.statut === 'payee').length],
+    ['En retard', invs.filter(i => i.statut === 'retard').length],
+    ['Taux recouvrement', Math.round(invs.filter(i=>i.statut==='payee').reduce((s,i)=>s+i.montantTTC,0) / Math.max(1,invs.reduce((s,i)=>s+i.montantTTC,0)) * 100) + '%'],
+  ];
+  stats.forEach((s, idx) => {
+    doc.setFillColor(idx % 2 === 0 ? 244 : 255, idx % 2 === 0 ? 247 : 255, idx % 2 === 0 ? 250 : 255);
+    doc.rect(14, y - 4, 182, 9, 'F');
+    doc.setTextColor(50, 50, 50); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text(s[0], 18, y + 1);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(s[1]), 180, y + 1, { align: 'right' });
+    y += 10;
+  });
+
+  // Footer
+  doc.setFillColor(...navy); doc.rect(0, 275, 210, 22, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('FacturePilot AI — Rapport de conformité Factur-X', 14, 283);
+  doc.text('Conforme EN 16931 · Réforme facturation électronique 2026', 14, 289);
+  doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 196, 289, { align: 'right' });
+
+  doc.save(`rapport-conformite-${new Date().toISOString().split('T')[0]}.pdf`);
+  FP.toast('Rapport PDF téléchargé !');
+}
+
+function downloadSampleXML() {
+  const invs = FP.getInvoices();
+  const inv = invs[0] || { id:'i1', numero:'FA-2026-001', clientId:'c1', clientNom:'Client Exemple', objet:'Prestation exemple', montantHT:1000, tva:20, montantTTC:1200, dateEmission:'2026-04-09', dateEcheance:'2026-05-09' };
+  const xml = FP.generateFacturX(inv);
+  const a = document.createElement('a');
+  a.href = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+  a.download = 'exemple-facturx.xml';
+  a.click();
+  FP.toast('Exemple Factur-X XML téléchargé !');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Guide d'utilisation — FacturePilot AI</title>
+<style>
+/* ── Impression & écran ── */
+@page {
+  size: A4;
+  margin: 18mm 16mm 18mm 16mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 13pt;
+  line-height: 1.65;
+  color: #1a2535;
+  background: #fff;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 30px 24px 60px;
+}
+
+/* ── Couverture ── */
+.cover {
+  text-align: center;
+  padding: 60px 30px 50px;
+  border-bottom: 3px solid #1B3A4B;
+  margin-bottom: 40px;
+  page-break-after: always;
+}
+.cover-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 30px;
+}
+.cover-logo-icon {
+  width: 64px; height: 64px;
+  background: #1B3A4B;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.cover-logo-icon svg { width: 34px; height: 34px; fill: white; }
+.cover-logo-text { font-size: 2rem; font-weight: 900; color: #1B3A4B; letter-spacing: -.5px; }
+.cover-logo-text span { color: #D4853B; }
+.cover h1 { font-size: 1.9rem; font-weight: 800; color: #1B3A4B; margin-bottom: 10px; }
+.cover .subtitle { font-size: 1.1rem; color: #6b7a8a; margin-bottom: 28px; }
+.cover .cover-pill {
+  display: inline-block;
+  background: rgba(212,133,59,.1);
+  color: #D4853B;
+  border: 1.5px solid rgba(212,133,59,.3);
+  border-radius: 30px;
+  padding: 6px 18px;
+  font-size: .9rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+.cover-info { font-size: .88rem; color: #9ca3af; }
+.cover-notice {
+  margin-top: 30px;
+  padding: 16px 20px;
+  background: #f4f7fa;
+  border-radius: 12px;
+  font-size: .88rem;
+  color: #6b7a8a;
+  text-align: left;
+}
+.cover-notice strong { color: #1B3A4B; }
+
+/* ── Table des matières ── */
+.toc { margin-bottom: 40px; page-break-after: always; }
+.toc h2 { font-size: 1.25rem; font-weight: 800; color: #1B3A4B; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+.toc-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 0;
+  font-size: .98rem;
+  color: #374151;
+  border-bottom: 1px dotted #e5e7eb;
+}
+.toc-item .toc-num { font-weight: 700; color: #D4853B; min-width: 24px; }
+.toc-item .toc-title { flex: 1; padding: 0 8px; }
+
+/* ── Chapitres ── */
+.chapter { margin-bottom: 48px; page-break-inside: avoid; }
+.chapter-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #1B3A4B;
+  color: white;
+  padding: 14px 20px;
+  border-radius: 12px 12px 0 0;
+  margin-bottom: 0;
+}
+.chapter-num {
+  background: #D4853B;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 900;
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.chapter-title { font-size: 1.15rem; font-weight: 800; }
+.chapter-body {
+  border: 2px solid #1B3A4B;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  padding: 22px 24px;
+}
+
+/* ── Étapes ── */
+.step {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: flex-start;
+}
+.step-num {
+  background: #D4853B;
+  color: white;
+  font-weight: 800;
+  font-size: .88rem;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.step-content { flex: 1; }
+.step-content strong { font-weight: 700; color: #1B3A4B; font-size: 1rem; display: block; margin-bottom: 2px; }
+.step-content p { font-size: .95rem; color: #374151; margin: 0; }
+
+/* ── Boîtes info ── */
+.info-box {
+  background: rgba(212,133,59,.07);
+  border-left: 4px solid #D4853B;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 14px 0;
+  font-size: .9rem;
+  color: #374151;
+}
+.info-box.tip { background: rgba(26,122,61,.06); border-color: #1A7A3D; }
+.info-box.warning { background: rgba(184,53,42,.06); border-color: #B8352A; }
+.info-box strong { color: #1B3A4B; }
+
+/* ── Encadrés clavier / bouton ── */
+.key {
+  display: inline-block;
+  background: #f4f7fa;
+  border: 1.5px solid #CDD5DE;
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-family: monospace;
+  font-size: .85rem;
+  color: #1B3A4B;
+  font-weight: 700;
+}
+.btn-demo {
+  display: inline-block;
+  background: #D4853B;
+  color: white;
+  border-radius: 7px;
+  padding: 3px 12px;
+  font-size: .85rem;
+  font-weight: 700;
+}
+.btn-demo.secondary {
+  background: #f4f7fa;
+  color: #1B3A4B;
+  border: 1.5px solid #CDD5DE;
+}
+
+/* ── Tableau ── */
+table.guide-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .9rem; }
+table.guide-table th { background: #1B3A4B; color: white; padding: 8px 12px; text-align: left; font-size: .85rem; }
+table.guide-table td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; color: #374151; vertical-align: top; }
+table.guide-table tr:nth-child(even) td { background: #f9fafb; }
+
+/* ── Glossaire ── */
+.glossary-item { margin-bottom: 10px; }
+.glossary-item dt { font-weight: 700; color: #1B3A4B; font-size: .95rem; }
+.glossary-item dd { color: #6b7a8a; font-size: .9rem; margin-left: 0; padding-left: 14px; border-left: 2px solid #e5e7eb; margin-top: 2px; }
+
+/* ── Pied de page ── */
+.page-footer {
+  margin-top: 50px;
+  padding-top: 18px;
+  border-top: 2px solid #1B3A4B;
+  text-align: center;
+  font-size: .8rem;
+  color: #9ca3af;
+}
+.page-footer strong { color: #D4853B; }
+
+/* ── Bouton impression (masqué à l'impression) ── */
+.print-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #1B3A4B;
+  color: white;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(27,58,75,.25);
+  transition: all .2s;
+  z-index: 999;
+}
+.print-btn:hover { background: #D4853B; transform: translateY(-2px); }
+
+@media print {
+  .print-btn { display: none !important; }
+  .chapter { page-break-inside: avoid; }
+  body { padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     COUVERTURE
+════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+    </div>
+    <div class="cover-logo-text">Facture<span>Pilot</span> AI</div>
+  </div>
+  <h1>Guide d'utilisation</h1>
+  <p class="subtitle">Tout ce que vous devez savoir pour bien démarrer,<br/>expliqué simplement, étape par étape.</p>
+  <div class="cover-pill">📘 Guide complet — Version 2026</div>
+  <div class="cover-info">Conforme à la réforme Factur-X 2026</div>
+  <div class="cover-notice">
+    <strong>À qui s'adresse ce guide ?</strong><br/>
+    Ce guide a été rédigé pour toute personne qui n'est pas forcément à l'aise avec l'informatique. Pas de jargon technique. Chaque étape est expliquée clairement, avec des exemples concrets. Si vous pouvez envoyer un e-mail, vous pouvez utiliser FacturePilot AI.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TABLE DES MATIÈRES
+════════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Sommaire</h2>
+  <div class="toc-item"><span class="toc-num">1</span><span class="toc-title">Se connecter à FacturePilot AI</span></div>
+  <div class="toc-item"><span class="toc-num">2</span><span class="toc-title">Découvrir le tableau de bord</span></div>
+  <div class="toc-item"><span class="toc-num">3</span><span class="toc-title">Ajouter un client</span></div>
+  <div class="toc-item"><span class="toc-num">4</span><span class="toc-title">Créer une facture</span></div>
+  <div class="toc-item"><span class="toc-num">5</span><span class="toc-title">Envoyer une facture par e-mail</span></div>
+  <div class="toc-item"><span class="toc-num">6</span><span class="toc-title">Télécharger une facture en PDF</span></div>
+  <div class="toc-item"><span class="toc-num">7</span><span class="toc-title">Marquer une facture comme payée</span></div>
+  <div class="toc-item"><span class="toc-num">8</span><span class="toc-title">Envoyer une relance à un client</span></div>
+  <div class="toc-item"><span class="toc-num">9</span><span class="toc-title">Gérer vos paramètres et votre profil</span></div>
+  <div class="toc-item"><span class="toc-num">10</span><span class="toc-title">Questions fréquentes</span></div>
+  <div class="toc-item"><span class="toc-num">+</span><span class="toc-title">Glossaire des termes</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 1 — Se connecter
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">1</div>
+    <div class="chapter-title">Se connecter à FacturePilot AI</div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Ouvrez votre navigateur internet</strong>
+        <p>Sur votre ordinateur, double-cliquez sur l'icône de votre navigateur (Chrome, Firefox, Edge ou Safari). C'est le programme que vous utilisez pour aller sur internet.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Tapez l'adresse du site</strong>
+        <p>En haut de l'écran, dans la barre d'adresse, cliquez une fois puis tapez l'adresse du site que l'on vous a fournie (par exemple <strong>www.facturepilot.ai</strong>). Appuyez ensuite sur la touche <span class="key">Entrée</span> de votre clavier.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Cliquez sur « Se connecter »</strong>
+        <p>Sur la page d'accueil, cliquez sur le bouton <span class="btn-demo">Se connecter</span>. Vous serez dirigé vers la page de connexion.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Entrez votre adresse e-mail et votre mot de passe</strong>
+        <p>Saisissez votre adresse e-mail dans la première case, puis votre mot de passe dans la deuxième. Cliquez ensuite sur <span class="btn-demo">Connexion</span>.</p>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>💡 Astuce — Mémoriser le mot de passe :</strong> Si vous ne voulez pas retaper votre mot de passe à chaque fois, votre navigateur peut le mémoriser. Quand il vous propose de « Mémoriser le mot de passe », cliquez sur « Oui ».
+    </div>
+
+    <div class="info-box warning">
+      <strong>⚠️ Mot de passe oublié ?</strong> Sur la page de connexion, cliquez sur « Mot de passe oublié ? ». Entrez votre adresse e-mail et vous recevrez un message pour en créer un nouveau.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 2 — Tableau de bord
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">2</div>
+    <div class="chapter-title">Découvrir le tableau de bord</div>
+  </div>
+  <div class="chapter-body">
+
+    <p style="margin-bottom:16px">Après la connexion, vous arrivez sur le <strong>tableau de bord</strong>. C'est votre page principale — un peu comme le compteur de votre voiture, il vous montre tout ce qui est important d'un seul coup d'œil.</p>
+
+    <table class="guide-table">
+      <thead><tr><th>Ce que vous voyez</th><th>À quoi ça sert</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Total encaissé</strong></td><td>L'argent que vos clients ont déjà payé ce mois-ci</td></tr>
+        <tr><td><strong>En attente</strong></td><td>Les factures envoyées mais pas encore payées</td></tr>
+        <tr><td><strong>En retard</strong></td><td>Les factures dont la date limite de paiement est dépassée</td></tr>
+        <tr><td><strong>Factures du mois</strong></td><td>Le nombre de factures créées ce mois-ci</td></tr>
+        <tr><td><strong>Graphique mensuel</strong></td><td>Une image qui montre vos revenus mois par mois</td></tr>
+        <tr><td><strong>Dernières factures</strong></td><td>La liste des 5 dernières factures créées</td></tr>
+      </tbody>
+    </table>
+
+    <div class="info-box">
+      <strong>📌 Le menu de gauche (la barre latérale) :</strong> Elle reste toujours visible. Cliquez sur les différentes rubriques pour naviguer dans l'application : Tableau de bord, Factures, Clients, Paramètres.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 3 — Ajouter un client
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">3</div>
+    <div class="chapter-title">Ajouter un client</div>
+  </div>
+  <div class="chapter-body">
+
+    <p style="margin-bottom:16px">Avant de créer une facture, il faut d'abord enregistrer le client à qui vous allez facturer. C'est comme créer une fiche de contact.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Cliquez sur « Clients » dans le menu de gauche</strong>
+        <p>Vous verrez la liste de tous vos clients. Si vous débutez, elle est vide — c'est normal.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur le bouton <span class="btn-demo">+ Nouveau client</span></strong>
+        <p>Une fenêtre s'ouvre pour remplir les informations du client.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Remplissez les informations</strong>
+        <p>Les cases marquées d'une étoile rouge <span style="color:#B8352A">*</span> sont obligatoires. Au minimum, indiquez le <strong>nom du client</strong> et son <strong>adresse e-mail</strong> (si vous voulez lui envoyer les factures par e-mail).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo">Enregistrer</span></strong>
+        <p>Le client est maintenant sauvegardé. Il apparaîtra dans vos listes et sera proposé automatiquement quand vous créerez une facture.</p>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>💡 Bon à savoir :</strong> Vous pouvez modifier les informations d'un client à tout moment. Cliquez sur son nom dans la liste, puis sur le bouton « Modifier ».
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 4 — Créer une facture
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">4</div>
+    <div class="chapter-title">Créer une facture</div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Cliquez sur « Factures » dans le menu de gauche</strong>
+        <p>Vous arrivez sur la liste de toutes vos factures.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo">+ Nouvelle facture</span></strong>
+        <p>Un formulaire s'ouvre.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Choisissez votre client</strong>
+        <p>Dans le champ « Client », commencez à taper le nom de votre client. Il apparaîtra dans une liste déroulante — cliquez dessus pour le sélectionner.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Ajoutez les lignes de prestation</strong>
+        <p>Cliquez sur <span class="btn-demo secondary">+ Ajouter une ligne</span>. Pour chaque ligne, indiquez la description de la prestation, la quantité et le prix unitaire. Le total se calcule automatiquement.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Vérifiez les dates</strong>
+        <p>La <strong>date d'émission</strong> est la date du jour (remplie automatiquement). La <strong>date d'échéance</strong> est la date limite pour que le client paie (généralement 30 jours plus tard).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <strong>Choisissez le statut</strong>
+        <p>Si la facture est prête à être envoyée, laissez sur « Envoyée ». Si vous voulez la finir plus tard, choisissez « Brouillon ».</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo">Enregistrer la facture</span></strong>
+        <p>Votre facture est créée ! Elle reçoit automatiquement un numéro unique (exemple : FA-2026-001).</p>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>📌 La TVA :</strong> Le taux de TVA est pré-rempli à 20 %. Si vous facturez sans TVA (auto-entrepreneur sous le seuil, association, exportation…), mettez 0. Le total TTC se calcule tout seul.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 5 — Envoyer par e-mail
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">5</div>
+    <div class="chapter-title">Envoyer une facture par e-mail</div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Ouvrez la facture</strong>
+        <p>Dans la liste des factures, cliquez sur la facture que vous souhaitez envoyer. Elle s'ouvre dans une fenêtre de détail.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo">✉ Envoyer</span></strong>
+        <p>Un bouton « Envoyer » se trouve en haut de la fenêtre. Cliquez dessus.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Confirmez l'envoi</strong>
+        <p>Un message vous indiquera l'adresse e-mail du client et vous demandera de confirmer. Cliquez sur « Oui, envoyer ».</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>C'est envoyé !</strong>
+        <p>Votre client reçoit un e-mail professionnel avec le détail de la facture. Le statut de la facture passe automatiquement à « Envoyée ».</p>
+      </div>
+    </div>
+
+    <div class="info-box warning">
+      <strong>⚠️ Attention :</strong> Pour pouvoir envoyer par e-mail, le client doit avoir une adresse e-mail enregistrée dans sa fiche. Si ce n'est pas le cas, allez d'abord dans « Clients » pour l'ajouter.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 6 — Télécharger en PDF
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">6</div>
+    <div class="chapter-title">Télécharger une facture en PDF</div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Ouvrez la facture</strong>
+        <p>Cliquez sur la facture dans la liste pour l'ouvrir.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo secondary">⬇ PDF</span></strong>
+        <p>Un fichier PDF se télécharge automatiquement sur votre ordinateur. Il se trouve généralement dans votre dossier « Téléchargements ».</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Ouvrez et imprimez le PDF</strong>
+        <p>Double-cliquez sur le fichier téléchargé pour l'ouvrir. Vous pouvez l'imprimer, l'envoyer par e-mail manuellement, ou le conserver pour votre comptabilité.</p>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>💡 Factur-X :</strong> Votre facture PDF contient automatiquement un fichier électronique intégré. C'est la norme obligatoire à partir de 2026. Vous n'avez rien de spécial à faire — FacturePilot s'en occupe pour vous.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 7 — Marquer comme payée
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">7</div>
+    <div class="chapter-title">Marquer une facture comme payée</div>
+  </div>
+  <div class="chapter-body">
+
+    <p style="margin-bottom:16px">Quand un client vous a virée l'argent, il faut le noter dans FacturePilot pour que vos comptes soient à jour.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Trouvez la facture concernée</strong>
+        <p>Dans la liste des factures, repérez la facture payée. Elle a un statut « Envoyée » ou « En retard ».</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur la facture pour l'ouvrir</strong>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Cliquez sur le bouton « Marquer comme payée »</strong>
+        <p>Le statut change immédiatement en <strong style="color:#1A7A3D">Payée ✓</strong> et les chiffres de votre tableau de bord se mettent à jour.</p>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>💡 Raccourci rapide :</strong> Dans la liste des factures, vous pouvez aussi cliquer directement sur le badge de statut (ex. « Envoyée ») pour le changer sans ouvrir la facture.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 8 — Envoyer une relance
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">8</div>
+    <div class="chapter-title">Envoyer une relance à un client</div>
+  </div>
+  <div class="chapter-body">
+
+    <p style="margin-bottom:16px">Un client n'a pas payé dans les temps ? Vous pouvez lui envoyer un rappel depuis FacturePilot — l'application rédige le message pour vous.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Ouvrez la facture en retard</strong>
+        <p>Les factures en retard apparaissent avec le statut <strong style="color:#B8352A">En retard</strong> dans la liste.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Cliquez sur « Générer une relance »</strong>
+        <p>Un formulaire s'ouvre avec un message déjà rédigé par l'intelligence artificielle.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Choisissez le ton de la relance</strong>
+        <p>Vous pouvez choisir entre : <strong>Cordial</strong> (premier rappel poli), <strong>Ferme</strong> (deuxième rappel) ou <strong>Urgent</strong> (mise en demeure). Choisissez selon la situation.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Lisez et modifiez le message si besoin</strong>
+        <p>Le message est prêt mais vous pouvez le modifier. Cliquez dans la zone de texte et corrigez ce que vous voulez.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Cliquez sur <span class="btn-demo">Envoyer la relance</span></strong>
+        <p>La relance est envoyée par e-mail au client. Elle est enregistrée dans l'historique de la facture.</p>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>📌 Historique des relances :</strong> Toutes les relances envoyées sont visibles dans la fiche de chaque facture. Pratique pour savoir où vous en êtes avec chaque client.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 9 — Paramètres
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">9</div>
+    <div class="chapter-title">Gérer vos paramètres et votre profil</div>
+  </div>
+  <div class="chapter-body">
+
+    <p style="margin-bottom:16px">Dans les <strong>Paramètres</strong> (cliquez sur l'icône en bas du menu de gauche), vous pouvez personnaliser votre compte.</p>
+
+    <table class="guide-table">
+      <thead><tr><th>Section</th><th>Ce que vous pouvez faire</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Mon entreprise</strong></td>
+          <td>Modifier votre nom, l'adresse de votre entreprise, votre numéro SIREN, votre IBAN (pour les virements), votre téléphone et e-mail.</td>
+        </tr>
+        <tr>
+          <td><strong>Modèle de facture</strong></td>
+          <td>Choisir la couleur principale de vos factures. Votre logo peut être ajouté en cliquant sur l'avatar en haut.</td>
+        </tr>
+        <tr>
+          <td><strong>Notifications</strong></td>
+          <td>Activer ou désactiver les alertes : facture payée, retard, résumé hebdomadaire…</td>
+        </tr>
+        <tr>
+          <td><strong>Plan &amp; facturation</strong></td>
+          <td>Voir votre abonnement actuel et l'historique des paiements.</td>
+        </tr>
+        <tr>
+          <td><strong>Sécurité &amp; RGPD</strong></td>
+          <td>Changer votre mot de passe. Exporter ou supprimer vos données.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="step" style="margin-top:16px">
+      <div class="step-num">!</div>
+      <div class="step-content">
+        <strong>Toujours cliquer sur « Enregistrer tout » après avoir modifié</strong>
+        <p>En haut à droite des paramètres, le bouton <span class="btn-demo">Enregistrer tout</span> sauvegarde vos modifications. N'oubliez pas de cliquer dessus avant de quitter la page.</p>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>💡 Se déconnecter :</strong> En bas du menu de gauche, vous trouverez le bouton <strong>Se déconnecter</strong>. Cliquez dessus quand vous avez terminé votre session, surtout si vous utilisez un ordinateur partagé.
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CHAPITRE 10 — FAQ
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num">10</div>
+    <div class="chapter-title">Questions fréquentes</div>
+  </div>
+  <div class="chapter-body">
+
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ Je ne vois pas mes factures — elles ont disparu !</div>
+      <div style="color:#374151;font-size:.95rem">Vérifiez que vous êtes bien connecté à votre compte (votre nom apparaît en bas du menu de gauche). Essayez d'actualiser la page en appuyant sur la touche <span class="key">F5</span>.</div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ Mon client n'a pas reçu la facture par e-mail</div>
+      <div style="color:#374151;font-size:.95rem">Vérifiez l'adresse e-mail du client dans sa fiche. Demandez-lui de regarder dans ses courriers indésirables (spam). Si le problème persiste, téléchargez la facture en PDF et envoyez-la manuellement depuis votre messagerie habituelle.</div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ J'ai fait une erreur sur une facture — je peux la corriger ?</div>
+      <div style="color:#374151;font-size:.95rem">Si la facture est en statut « Brouillon », ouvrez-la et cliquez sur « Modifier ». Si elle a déjà été envoyée au client, il est préférable de la laisser et de créer un <strong>avoir</strong> (une facture négative). Contactez-nous si vous avez un doute.</div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ Comment sauvegarder mes factures ?</div>
+      <div style="color:#374151;font-size:.95rem">Vos données sont sauvegardées automatiquement sur le serveur. Pour garder une copie chez vous, allez dans <strong>Paramètres → Sécurité → Exporter mes données</strong>. Un fichier sera téléchargé sur votre ordinateur.</div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ Qu'est-ce que la « Factur-X » dont on parle ?</div>
+      <div style="color:#374151;font-size:.95rem">C'est le nouveau format de facture électronique obligatoire en France à partir de 2026. En résumé : vos factures PDF contiennent des données lisibles par les ordinateurs. FacturePilot gère tout cela automatiquement — vous n'avez rien à faire.</div>
+    </div>
+
+    <div style="margin-bottom:0">
+      <div style="font-weight:700;color:#1B3A4B;font-size:1rem;margin-bottom:4px">❓ J'ai besoin d'aide supplémentaire</div>
+      <div style="color:#374151;font-size:.95rem">Contactez notre équipe : <strong style="color:#D4853B">contact@facturepilot.ai</strong>. Nous répondons sous 24 heures les jours ouvrés.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GLOSSAIRE
+════════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-num" style="font-size:.85rem">ABC</div>
+    <div class="chapter-title">Glossaire — les mots expliqués simplement</div>
+  </div>
+  <div class="chapter-body">
+
+    <dl>
+      <div class="glossary-item">
+        <dt>Brouillon</dt>
+        <dd>Une facture que vous avez commencée mais pas encore envoyée. Vous pouvez la modifier librement.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Date d'émission</dt>
+        <dd>Le jour où la facture est créée. C'est généralement la date du jour.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Date d'échéance</dt>
+        <dd>La date limite à laquelle le client doit payer. Par exemple, 30 jours après la date d'émission.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Factur-X</dt>
+        <dd>Le format de facture électronique obligatoire en France à partir de 2026. FacturePilot l'applique automatiquement.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>IBAN</dt>
+        <dd>Votre numéro de compte bancaire international. Il est affiché sur vos factures pour que le client sache où faire le virement.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Montant HT</dt>
+        <dd>Le montant <strong>Hors Taxes</strong> : le prix de votre prestation avant d'ajouter la TVA.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Montant TTC</dt>
+        <dd>Le montant <strong>Toutes Taxes Comprises</strong> : le prix final que le client doit payer (HT + TVA).</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Relance</dt>
+        <dd>Un message envoyé à un client qui n'a pas encore payé sa facture, pour lui rappeler poliment ou fermement de régler.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>SIREN</dt>
+        <dd>Le numéro d'identification de votre entreprise en France (9 chiffres). Il figure sur votre Kbis ou votre extrait INSEE.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>Statut</dt>
+        <dd>L'état d'une facture : Brouillon, Envoyée, En retard, ou Payée.</dd>
+      </div>
+      <div class="glossary-item">
+        <dt>TVA</dt>
+        <dd>Taxe sur la Valeur Ajoutée. En France, le taux standard est de 20 %. Si vous êtes auto-entrepreneur sous le seuil de franchise, vous ne facturez pas de TVA (taux à 0 %).</dd>
+      </div>
+    </dl>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PIED DE PAGE
+════════════════════════════════════════════════════════════════ -->
+<div class="page-footer">
+  <p><strong>FacturePilot AI</strong> — Guide d'utilisation v2026</p>
+  <p style="margin-top:4px">Questions ? <strong>contact@facturepilot.ai</strong> · <strong>www.facturepilot.ai</strong></p>
+  <p style="margin-top:8px">Ce guide peut être imprimé librement et transmis à vos collaborateurs.</p>
+</div>
+
+</body>
+</html>

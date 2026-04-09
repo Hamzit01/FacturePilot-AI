@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Créer un compte — FacturePilot AI</title>
+<style>
+:root{--navy:#1B3A4B;--orange:#D4853B;--green:#1A7A3D;--red:#B8352A;--border:#CDD5DE;--bg:#F4F7FA;--text-muted:#6b7a8a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:white;border-radius:20px;padding:40px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(27,58,75,.12)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+.logo-icon{width:38px;height:38px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:20px;height:20px;fill:white}
+.logo-text{font-weight:800;font-size:1.15rem;color:var(--navy)}
+.logo-text span{color:var(--orange)}
+h2{font-size:1.25rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.sub{font-size:.88rem;color:var(--text-muted);margin-bottom:24px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:.82rem;font-weight:600;color:var(--navy);margin-bottom:5px}
+input,select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;outline:none;transition:border-color .2s;font-family:inherit}
+input:focus,select:focus{border-color:var(--orange)}
+.btn{width:100%;padding:13px;background:var(--orange);color:white;border:none;border-radius:10px;font-size:.97rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
+.btn:hover{background:#e8965a;transform:translateY(-1px)}
+.perks{background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:14px;margin-bottom:20px;display:flex;flex-direction:column;gap:6px}
+.perk{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text-muted)}
+.perk::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.link-row{text-align:center;font-size:.88rem;color:var(--text-muted);margin-top:14px}
+.link-row a{color:var(--orange);font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></div>
+    <div class="logo-text">Facture<span>Pilot</span> AI</div>
+  </div>
+  <h2>Créer votre compte gratuit</h2>
+  <p class="sub">Conforme Factur-X · Prêt en moins de 5 minutes</p>
+  <div class="perks">
+    <div class="perk">10 factures gratuites/mois — sans carte bancaire</div>
+    <div class="perk">Conformité Factur-X automatique dès le premier jour</div>
+    <div class="perk">Essai 14 jours gratuit sur le plan Pro</div>
+  </div>
+  <form id="reg-form">
+    <div class="form-row">
+      <div class="form-group"><label>Prénom <span style="color:var(--red)">*</span></label><input id="prenom" placeholder="Hamza" required/></div>
+      <div class="form-group"><label>Nom <span style="color:var(--red)">*</span></label><input id="nom" placeholder="Hadjadj" required/></div>
+    </div>
+    <div class="form-group"><label>Nom de l'entreprise <span style="color:var(--red)">*</span></label><input id="entreprise" placeholder="Mon Entreprise SARL" required/></div>
+    <div class="form-group"><label>SIREN</label><input id="siren" placeholder="9 chiffres" maxlength="9"/></div>
+    <div class="form-group"><label>Email professionnel <span style="color:var(--red)">*</span></label><input type="email" id="email" placeholder="vous@entreprise.fr" required/></div>
+    <div class="form-group"><label>Mot de passe <span style="color:var(--red)">*</span></label><input type="password" id="password" placeholder="8 caractères minimum" minlength="8" required/></div>
+    <div class="form-group">
+      <label>Secteur d'activité</label>
+      <select id="secteur">
+        <option>Communication / Marketing</option><option>BTP / Artisanat</option><option>Commerce</option>
+        <option>Services aux entreprises</option><option>Santé / Bien-être</option><option>Formation</option>
+        <option>Conseil / Consulting</option><option>Industrie</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:flex-start;gap:8px;margin-top:4px">
+      <input type="checkbox" id="cgu" required style="width:auto;margin-top:3px"/>
+      <label for="cgu" style="font-size:.82rem;color:var(--text-muted);font-weight:400">J'accepte les <a href="cgu.html" target="_blank" style="color:var(--orange)">CGU</a> et la <a href="confidentialite.html" target="_blank" style="color:var(--orange)">politique de confidentialité</a> de FacturePilot AI</label>
+    </div>
+    <div id="reg-error" style="display:none;background:rgba(184,53,42,.08);border:1px solid rgba(184,53,42,.2);color:var(--red);font-size:.85rem;padding:10px 14px;border-radius:8px;margin-bottom:10px"></div>
+    <button type="submit" class="btn">Créer mon compte gratuit →</button>
+  </form>
+  <div class="link-row">Déjà un compte ? <a href="login.html">Se connecter</a></div>
+</div>
+<script>
+// Auto-redirect if already logged in
+if (localStorage.getItem('fp_token')) window.location.href = 'dashboard.html';
+
+// Pré-remplir l'email depuis la landing page (bouton CTA)
+const preEmail = localStorage.getItem('fp_signup_email');
+if (preEmail) {
+  document.getElementById('email').value = preEmail;
+  localStorage.removeItem('fp_signup_email');
+}
+
+document.getElementById('reg-form').onsubmit = async function(e) {
+  e.preventDefault();
+  const btn    = this.querySelector('.btn');
+  const errEl  = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+  btn.textContent = 'Création du compte…'; btn.disabled = true;
+  const body = {
+    prenom:    document.getElementById('prenom').value.trim(),
+    nom:       document.getElementById('nom').value.trim(),
+    entreprise:document.getElementById('entreprise').value.trim(),
+    siren:     document.getElementById('siren').value.trim(),
+    email:     document.getElementById('email').value.trim().toLowerCase(),
+    password:  document.getElementById('password').value,
+  };
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la création du compte');
+    localStorage.setItem('fp_token', data.token);
+    localStorage.setItem('fp_logged', '1');
+    localStorage.setItem('fp_user', JSON.stringify(data.user));
+    // Pre-load empty lists so app is immediately usable
+    localStorage.setItem('fp_clients', '[]');
+    localStorage.setItem('fp_invoices', '[]');
+    // Flag for onboarding welcome
+    localStorage.setItem('fp_new_account', '1');
+    btn.textContent = 'Chargement…';
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.textContent = 'Créer mon compte gratuit →'; btn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

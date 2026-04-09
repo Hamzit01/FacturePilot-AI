@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Clients — FacturePilot AI</title>
+<link rel="stylesheet" href="assets/app.css"/>
+<style>
+.clients-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px}
+.client-card{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .25s}
+.client-card:hover{border-color:var(--orange);box-shadow:var(--shadow);transform:translateY(-2px)}
+.client-avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;color:white;flex-shrink:0;margin-bottom:14px}
+.client-nom{font-size:1rem;font-weight:700;color:var(--navy);margin-bottom:4px}
+.client-detail{font-size:.82rem;color:var(--text-muted);margin-bottom:2px}
+.client-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.stat-mini{text-align:center}
+.stat-mini .val{font-size:.95rem;font-weight:700;color:var(--navy)}
+.stat-mini .lbl{font-size:.7rem;color:var(--text-muted)}
+.risque-bar{height:4px;border-radius:2px;margin-top:10px}
+.view-toggle{display:flex;gap:4px;background:var(--bg-light);padding:3px;border-radius:8px}
+.view-btn{padding:6px 12px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);transition:all .2s}
+.view-btn.active{background:white;color:var(--navy);box-shadow:var(--shadow)}
+.hist-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.hist-item:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left"><h2>Clients</h2><div class="breadcrumb">Gestion du portefeuille client</div></div>
+      <div class="topbar-right">
+        <div class="search-bar"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input type="text" id="search" placeholder="Rechercher un client…" oninput="render()"/></div>
+        <div class="view-toggle">
+          <button class="view-btn active" id="vbtn-grid" onclick="setView('grid')">⊞ Cartes</button>
+          <button class="view-btn" id="vbtn-list" onclick="setView('list')">☰ Liste</button>
+        </div>
+        <button class="btn btn-ghost" onclick="openCSVImport()" title="Importer des clients depuis un fichier CSV">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>Import CSV
+        </button>
+        <button class="btn btn-primary" onclick="openNew()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Nouveau client
+        </button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div id="clients-grid" class="clients-grid"></div>
+      <div id="clients-table" style="display:none">
+        <div class="card">
+          <table class="data-table">
+            <thead><tr><th>Client</th><th>Email</th><th>Téléphone</th><th>Secteur</th><th>Délai paiement</th><th>Risque</th><th>Encours</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="clients-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORT CSV -->
+<div class="modal-overlay" id="modal-csv" onclick="if(event.target===this)FP.closeModal('modal-csv')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <h3>Import CSV — Clients</h3>
+        <div class="card-sub">Importez plusieurs clients en une seule fois</div>
+      </div>
+      <button class="modal-close" onclick="FP.closeModal('modal-csv')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Zone de dépôt -->
+      <div id="csv-drop-zone" style="border:2px dashed var(--border);border-radius:12px;padding:28px;text-align:center;margin-bottom:16px;cursor:pointer;transition:all .2s" onclick="document.getElementById('csv-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--orange)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleCSVDrop(event)">
+        <div style="font-size:2rem;margin-bottom:8px">📂</div>
+        <div style="font-weight:700;color:var(--navy);margin-bottom:4px">Glisser-déposer votre fichier CSV</div>
+        <div style="font-size:.82rem;color:var(--text-muted)">ou cliquer pour parcourir — Encodage UTF-8 recommandé</div>
+        <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="parseCSV(this.files[0])"/>
+      </div>
+      <!-- Aide colonnes -->
+      <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:.82rem">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:6px">Format attendu (séparateur ; ou ,)</div>
+        <code style="font-size:.78rem;color:var(--text-muted)">nom;siret;email;tel;adresse;secteur;delai_paiement;risque</code>
+        <div style="margin-top:6px;color:var(--text-muted)">Seule la colonne <strong>nom</strong> est obligatoire. La 1ère ligne peut être un en-tête (ignorée automatiquement).</div>
+        <a href="#" onclick="downloadCSVTemplate();return false" style="color:var(--orange);font-weight:600;font-size:.82rem">⬇ Télécharger le modèle CSV</a>
+      </div>
+      <!-- Prévisualisation -->
+      <div id="csv-preview" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:700;color:var(--navy)" id="csv-preview-title"></div>
+          <span id="csv-errors-badge" style="font-size:.78rem;display:none"></span>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+          <table class="data-table" style="margin:0">
+            <thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Tél</th><th>Secteur</th><th>Délai</th><th>Risque</th><th>Statut</th></tr></thead>
+            <tbody id="csv-preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="FP.closeModal('modal-csv')">Annuler</button>
+      <button class="btn btn-primary" id="csv-import-btn" onclick="importCSV()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+        <span id="csv-import-label">Importer</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CLIENT -->
+<div class="modal-overlay" id="modal-client" onclick="if(event.target===this)FP.closeModal('modal-client')">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h3 id="modal-client-title">Nouveau client</h3>
+      <button class="modal-close" onclick="FP.closeModal('modal-client')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="client-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nom / Raison sociale <span class="req">*</span></label>
+          <input class="form-control" id="c-nom" placeholder="Ex : BTP Martin SARL"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SIRET</label>
+          <input class="form-control" id="c-siret" placeholder="14 chiffres"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input type="email" class="form-control" id="c-email" placeholder="facturation@client.fr"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Téléphone</label>
+          <input class="form-control" id="c-tel" placeholder="03 25 …"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Adresse</label>
+        <input class="form-control" id="c-adresse" placeholder="12 rue de la Paix, 51100 Reims"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Secteur d'activité</label>
+          <select class="form-control" id="c-secteur">
+            <option>Communication</option><option>BTP</option><option>Commerce</option>
+            <option>Services</option><option>Industrie</option><option>Santé</option>
+            <option>Formation</option><option>Conseil RH</option><option>Pharmacie</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Délai de paiement (jours)</label>
+          <input type="number" class="form-control" id="c-delai" value="30" min="0" max="90"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Niveau de risque</label>
+        <select class="form-control" id="c-risque">
+          <option value="faible">Faible</option>
+          <option value="moyen">Moyen</option>
+          <option value="élevé">Élevé</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="FP.closeModal('modal-client')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FICHE CLIENT -->
+<div class="modal-overlay" id="modal-fiche" onclick="if(event.target===this)FP.closeModal('modal-fiche')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div><h3 id="fiche-title">Fiche client</h3><div class="card-sub" id="fiche-sub"></div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="editFromFiche()">✏️ Modifier</button>
+        <button class="modal-close" onclick="FP.closeModal('modal-fiche')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="fiche-body"></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+FP.renderSidebar('clients');
+let view = 'grid';
+let editingId = null;
+
+const colors = ['#1B3A4B','#D4853B','#1A7A3D','#6b5ea8','#B8352A','#0891b2'];
+const getColor = (nom) => colors[nom.charCodeAt(0)%colors.length];
+const initials = (nom) => nom.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+function getClientEncours(clientId) {
+  return FP.getInvoices().filter(i=>i.clientId===clientId&&['envoyee','retard'].includes(i.statut)).reduce((s,i)=>s+i.montantTTC,0);
+}
+function getClientTotal(clientId) {
+  return FP.getInvoices().filter(i=>i.clientId===clientId).reduce((s,i)=>s+i.montantTTC,0);
+}
+
+function setView(v) {
+  view = v;
+  document.getElementById('vbtn-grid').classList.toggle('active', v==='grid');
+  document.getElementById('vbtn-list').classList.toggle('active', v==='list');
+  document.getElementById('clients-grid').style.display = v==='grid'?'grid':'none';
+  document.getElementById('clients-table').style.display = v==='list'?'block':'none';
+  render();
+}
+
+function render() {
+  const search = document.getElementById('search').value.toLowerCase();
+  let clients = FP.getClients();
+  if (search) clients = clients.filter(c=>c.nom.toLowerCase().includes(search)||c.email?.toLowerCase().includes(search)||c.secteur?.toLowerCase().includes(search));
+
+  if (view === 'grid') {
+    document.getElementById('clients-grid').innerHTML = clients.length ?
+      clients.map(c => {
+        const enc = getClientEncours(c.id);
+        const tot = getClientTotal(c.id);
+        const invCount = FP.getInvoices().filter(i=>i.clientId===c.id).length;
+        const risqueColor = {faible:'var(--green)',moyen:'var(--orange)',élevé:'var(--red)'}[c.risque]||'var(--border)';
+        return `<div class="client-card" onclick="viewClient('${c.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div class="client-avatar" style="background:${getColor(c.nom)}">${initials(c.nom)}</div>
+            <span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span>
+          </div>
+          <div class="client-nom">${c.nom}</div>
+          <div class="client-detail">${c.email||'—'}</div>
+          <div class="client-detail">${c.secteur||'—'} · ${c.delaiPaiement||30}j</div>
+          <div class="client-stats">
+            <div class="stat-mini"><div class="val">${invCount}</div><div class="lbl">Factures</div></div>
+            <div class="stat-mini"><div class="val" style="color:${enc>0?'var(--orange)':'var(--green)'}">${FP.money(enc)}</div><div class="lbl">Encours</div></div>
+          </div>
+          <div class="risque-bar" style="background:${risqueColor};opacity:.3;width:${Math.min(100,tot/500)}%"></div>
+        </div>`;
+      }).join('') :
+      `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><h4>Aucun client</h4><p>Ajoutez votre premier client pour commencer à facturer</p><button class="btn btn-primary" onclick="openNew()">+ Ajouter un client</button></div>`;
+  } else {
+    document.getElementById('clients-tbody').innerHTML = clients.map(c=>{
+      const enc = getClientEncours(c.id);
+      return `<tr onclick="viewClient('${c.id}')">
+        <td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:8px;background:${getColor(c.nom)};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.78rem">${initials(c.nom)}</div><strong>${c.nom}</strong></div></td>
+        <td>${c.email||'—'}</td><td>${c.tel||'—'}</td><td>${c.secteur||'—'}</td>
+        <td>${c.delaiPaiement||30} j</td>
+        <td><span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span></td>
+        <td style="font-weight:700;color:${enc>0?'var(--orange)':'var(--text-muted)'}">${enc>0?FP.money(enc):'0,00 €'}</td>
+        <td><div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-icon btn-sm" onclick="event.stopPropagation();editClient('${c.id}')">✏️</button>
+          <button class="btn btn-icon btn-sm" onclick="event.stopPropagation();newInvoiceFor('${c.id}')">📄</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();delClient('${c.id}')">🗑</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function openNew() {
+  editingId = null;
+  document.getElementById('modal-client-title').textContent = 'Nouveau client';
+  ['c-nom','c-siret','c-email','c-tel','c-adresse'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('c-delai').value = '30';
+  document.getElementById('c-risque').value = 'faible';
+  FP.openModal('modal-client');
+}
+
+function editClient(id) {
+  const c = FP.getClient(id);
+  if (!c) return;
+  editingId = id;
+  document.getElementById('modal-client-title').textContent = 'Modifier le client';
+  document.getElementById('client-id').value = id;
+  document.getElementById('c-nom').value = c.nom;
+  document.getElementById('c-siret').value = c.siret||'';
+  document.getElementById('c-email').value = c.email||'';
+  document.getElementById('c-tel').value = c.tel||'';
+  document.getElementById('c-adresse').value = c.adresse||'';
+  document.getElementById('c-secteur').value = c.secteur||'Communication';
+  document.getElementById('c-delai').value = c.delaiPaiement||30;
+  document.getElementById('c-risque').value = c.risque||'faible';
+  FP.closeModal('modal-fiche');
+  FP.openModal('modal-client');
+}
+
+function editFromFiche() {
+  FP.closeModal('modal-fiche');
+  editClient(window._ficheId);
+}
+
+function saveClient() {
+  const nom = document.getElementById('c-nom').value.trim();
+  const email = document.getElementById('c-email').value.trim();
+  if (!nom) { FP.toast('Le nom est requis', 'error'); return; }
+  const data = {
+    nom, siret: document.getElementById('c-siret').value,
+    email, tel: document.getElementById('c-tel').value,
+    adresse: document.getElementById('c-adresse').value,
+    secteur: document.getElementById('c-secteur').value,
+    delaiPaiement: parseInt(document.getElementById('c-delai').value)||30,
+    risque: document.getElementById('c-risque').value,
+  };
+  if (editingId) { FP.updateClient(editingId, data); FP.toast('Client mis à jour !'); }
+  else { FP.addClient(data); FP.toast('Client ajouté !'); }
+  FP.closeModal('modal-client');
+  render();
+}
+
+function delClient(id) {
+  const c = FP.getClient(id);
+  FP.confirm(`Supprimer le client "${c?.nom}" ? Ses factures seront conservées.`, ()=>{
+    FP.deleteClient(id);
+    FP.toast('Client supprimé', 'info');
+    render();
+  });
+}
+
+function viewClient(id) {
+  window._ficheId = id;
+  const c = FP.getClient(id);
+  if (!c) return;
+  const invs = FP.getInvoices().filter(i=>i.clientId===id);
+  const encours = invs.filter(i=>['envoyee','retard'].includes(i.statut)).reduce((s,i)=>s+i.montantTTC,0);
+  const total = invs.reduce((s,i)=>s+i.montantTTC,0);
+  const payees = invs.filter(i=>i.statut==='payee').reduce((s,i)=>s+i.montantTTC,0);
+  document.getElementById('fiche-title').textContent = c.nom;
+  document.getElementById('fiche-sub').textContent = `${c.secteur||''} · SIRET : ${c.siret||'—'}`;
+  document.getElementById('fiche-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+      <div class="kpi-card"><div class="kpi-label">CA total</div><div class="kpi-val" style="font-size:1.3rem">${FP.money(total)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Encours</div><div class="kpi-val" style="font-size:1.3rem;color:${encours>0?'var(--orange)':'var(--green)'}">${FP.money(encours)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Taux recouvrement</div><div class="kpi-val" style="font-size:1.3rem">${total>0?Math.round(payees/total*100):100}%</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Informations</div>
+        <div style="font-size:.88rem;display:flex;flex-direction:column;gap:6px">
+          <div><strong>Email :</strong> ${c.email||'—'}</div>
+          <div><strong>Tél :</strong> ${c.tel||'—'}</div>
+          <div><strong>Adresse :</strong> ${c.adresse||'—'}</div>
+          <div><strong>Délai de paiement :</strong> ${c.delaiPaiement||30} jours</div>
+          <div><strong>Risque :</strong> <span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span></div>
+          <div><strong>Client depuis :</strong> ${FP.dateStr(c.createdAt)}</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Historique factures</div>
+        <div>${invs.length ? invs.slice(-5).reverse().map(inv=>`
+          <div class="hist-item">
+            <div><div style="font-weight:600;font-size:.85rem">${inv.numero}</div><div style="font-size:.75rem;color:var(--text-muted)">${FP.dateStr(inv.dateEmission)}</div></div>
+            <div style="text-align:right"><div style="font-weight:700;font-size:.85rem">${FP.money(inv.montantTTC)}</div><span class="badge ${FP.statusClass[inv.statut]}" style="font-size:.68rem">${FP.statusLabel[inv.statut]}</span></div>
+          </div>`).join('') : '<div style="color:var(--text-muted);font-size:.88rem">Aucune facture</div>'}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary btn-sm" onclick="newInvoiceFor('${c.id}')">+ Nouvelle facture</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='relances.html?client=${c.id}'">Voir les relances</button>
+    </div>
+  `;
+  FP.openModal('modal-fiche');
+}
+
+function newInvoiceFor(clientId) {
+  FP.closeModal('modal-fiche');
+  window.location.href = `factures.html?new=1&client=${clientId}`;
+}
+
+// ─── Import CSV ──────────────────────────────────────────────────────────────
+let csvParsed = [];
+
+function openCSVImport() {
+  csvParsed = [];
+  document.getElementById('csv-preview').style.display = 'none';
+  document.getElementById('csv-import-btn').style.display = 'none';
+  document.getElementById('csv-file-input').value = '';
+  document.getElementById('csv-drop-zone').style.borderColor = 'var(--border)';
+  FP.openModal('modal-csv');
+}
+
+function handleCSVDrop(e) {
+  e.preventDefault();
+  document.getElementById('csv-drop-zone').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSV(file);
+}
+
+function parseCSV(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    // Détecter le séparateur
+    const sep = text.indexOf(';') > text.indexOf(',') ? ';' : ',';
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (!lines.length) { FP.toast('Fichier vide', 'error'); return; }
+
+    // Détecter si la 1ère ligne est un en-tête
+    const HEADER_KEYS = ['nom','name','raison','client','siret','email','tel','telephone','adresse','secteur','delai','risque'];
+    const firstCells = lines[0].split(sep).map(c => c.trim().toLowerCase().replace(/['"]/g,''));
+    const hasHeader = firstCells.some(c => HEADER_KEYS.includes(c));
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    // Mapping colonnes : on cherche les noms connus, sinon position fixe
+    let colMap = { nom:0, siret:1, email:2, tel:3, adresse:4, secteur:5, delai:6, risque:7 };
+    if (hasHeader) {
+      firstCells.forEach((c, i) => {
+        if (/nom|name|raison|client/.test(c))    colMap.nom     = i;
+        if (/siret|siren/.test(c))               colMap.siret   = i;
+        if (/email|courriel/.test(c))            colMap.email   = i;
+        if (/tel|phone|telephone/.test(c))       colMap.tel     = i;
+        if (/adresse|address/.test(c))           colMap.adresse = i;
+        if (/secteur|activit/.test(c))           colMap.secteur = i;
+        if (/delai|jours|days/.test(c))          colMap.delai   = i;
+        if (/risque|risk/.test(c))               colMap.risque  = i;
+      });
+    }
+
+    const clean = s => (s || '').replace(/^["']|["']$/g, '').trim();
+    const existing = new Set(FP.getClients().map(c => c.nom.toLowerCase()));
+
+    csvParsed = dataLines.map((line, idx) => {
+      const cells = line.split(sep);
+      const nom = clean(cells[colMap.nom]);
+      if (!nom) return null;
+      const delaiRaw = parseInt(clean(cells[colMap.delai]))||30;
+      const risqueRaw = clean(cells[colMap.risque]).toLowerCase();
+      const risque = ['faible','moyen','élevé','eleve'].includes(risqueRaw) ? (risqueRaw === 'eleve' ? 'élevé' : risqueRaw) : 'faible';
+      const duplicate = existing.has(nom.toLowerCase());
+      return {
+        _row: idx + 1,
+        _error: !nom ? 'Nom manquant' : null,
+        _duplicate: duplicate,
+        nom,
+        siret:  clean(cells[colMap.siret]),
+        email:  clean(cells[colMap.email]),
+        tel:    clean(cells[colMap.tel]),
+        adresse:clean(cells[colMap.adresse]),
+        secteur:clean(cells[colMap.secteur]) || 'Autre',
+        delaiPaiement: isNaN(delaiRaw) ? 30 : delaiRaw,
+        risque,
+      };
+    }).filter(Boolean);
+
+    if (!csvParsed.length) { FP.toast('Aucune ligne valide trouvée', 'error'); return; }
+
+    // Afficher la prévisualisation
+    const errors   = csvParsed.filter(r => r._error).length;
+    const dupes    = csvParsed.filter(r => r._duplicate).length;
+    const valid    = csvParsed.filter(r => !r._error && !r._duplicate).length;
+    document.getElementById('csv-preview-title').textContent = `${csvParsed.length} ligne(s) détectée(s) — ${valid} à importer`;
+    const badge = document.getElementById('csv-errors-badge');
+    if (dupes || errors) {
+      badge.innerHTML = `${dupes ? `<span style="color:var(--orange)">${dupes} doublon(s)</span>` : ''}${dupes&&errors?' · ':''}${errors ? `<span style="color:var(--red)">${errors} erreur(s)</span>` : ''}`;
+      badge.style.display = 'inline';
+    } else { badge.style.display = 'none'; }
+
+    document.getElementById('csv-preview-body').innerHTML = csvParsed.map(r => `
+      <tr style="${r._error ? 'opacity:.5' : r._duplicate ? 'background:rgba(212,133,59,.06)' : ''}">
+        <td style="color:var(--text-muted)">${r._row}</td>
+        <td><strong>${r.nom}</strong></td>
+        <td>${r.email||'—'}</td>
+        <td>${r.tel||'—'}</td>
+        <td>${r.secteur||'—'}</td>
+        <td>${r.delaiPaiement}j</td>
+        <td><span class="badge badge-${r.risque==='faible'?'paid':r.risque==='moyen'?'pending':'overdue'}">${r.risque}</span></td>
+        <td>${r._error ? `<span style="color:var(--red);font-size:.78rem">✗ ${r._error}</span>` : r._duplicate ? '<span style="color:var(--orange);font-size:.78rem">↷ Doublon</span>' : '<span style="color:var(--green);font-size:.78rem">✓</span>'}</td>
+      </tr>`).join('');
+
+    document.getElementById('csv-preview').style.display = 'block';
+    if (valid > 0) {
+      document.getElementById('csv-import-btn').style.display = 'flex';
+      document.getElementById('csv-import-label').textContent = `Importer ${valid} client${valid>1?'s':''}`;
+    } else {
+      document.getElementById('csv-import-btn').style.display = 'none';
+      FP.toast('Aucun client valide à importer', 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function importCSV() {
+  const toImport = csvParsed.filter(r => !r._error && !r._duplicate);
+  if (!toImport.length) return;
+  const btn = document.getElementById('csv-import-btn');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Import en cours…';
+
+  let ok = 0;
+  for (const c of toImport) {
+    FP.addClient({ nom: c.nom, siret: c.siret, email: c.email, tel: c.tel, adresse: c.adresse, secteur: c.secteur, delaiPaiement: c.delaiPaiement, risque: c.risque });
+    ok++;
+  }
+
+  FP.closeModal('modal-csv');
+  FP.toast(`${ok} client${ok>1?'s':''} importé${ok>1?'s':''} !`);
+  render();
+}
+
+function downloadCSVTemplate() {
+  const rows = [
+    'nom;siret;email;tel;adresse;secteur;delai_paiement;risque',
+    'Agence Dupont;41234567800010;contact@agence-dupont.fr;03 25 12 34 56;12 rue de la Paix 51100 Reims;Communication;30;faible',
+    'BTP Martin SARL;55678901200034;facturation@btpmartin.fr;03 25 87 65 43;8 avenue Gambetta 52100 Saint-Dizier;BTP;45;moyen',
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows);
+  a.download = 'modele-clients-facturepilot.csv';
+  a.click();
+}
+
+render();
+</script>
+</body>
+</html>

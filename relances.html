@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Relances IA — FacturePilot AI</title>
+<link rel="stylesheet" href="assets/app.css"/>
+<style>
+.relance-card{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;transition:all .2s}
+.relance-card:hover{border-color:var(--orange);box-shadow:var(--shadow)}
+.relance-card.urgent{border-color:var(--red);background:rgba(184,53,42,.02)}
+.relance-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.relance-client{font-size:1rem;font-weight:700;color:var(--navy)}
+.relance-num{font-size:.78rem;color:var(--text-muted);margin-top:2px}
+.relance-amount{font-size:1.1rem;font-weight:800;color:var(--red)}
+.relance-meta{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.meta-item{display:flex;align-items:center;gap:5px;font-size:.82rem;color:var(--text-muted)}
+.meta-item svg{width:13px;height:13px;fill:var(--text-muted)}
+.history-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.relance-history{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.hist-chip{padding:3px 10px;border-radius:100px;font-size:.72rem;font-weight:700;background:var(--bg-light);color:var(--text-muted)}
+.relance-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ton-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.ton-card{border:1.5px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .2s}
+.ton-card:hover{border-color:var(--orange);background:rgba(212,133,59,.03)}
+.ton-card.active{border-color:var(--orange);background:rgba(212,133,59,.06)}
+.ton-card h4{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.ton-card p{font-size:.78rem;color:var(--text-muted)}
+.ai-preview{background:var(--bg-light);border-left:3px solid var(--orange);border-radius:8px;padding:16px;font-size:.87rem;line-height:1.75;white-space:pre-wrap;max-height:260px;overflow-y:auto;margin-bottom:14px;color:var(--text-dark)}
+.stats-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-box{background:white;border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.stat-box .num{font-size:1.6rem;font-weight:800;color:var(--navy)}
+.stat-box .lbl{font-size:.75rem;color:var(--text-muted);margin-top:3px}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left"><h2>Relances IA</h2><div class="breadcrumb">Recouvrement automatisé par intelligence artificielle</div></div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="sendAll()">Envoyer toutes les relances</button>
+        <button class="btn btn-primary btn-sm" onclick="refreshList()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>Actualiser
+        </button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="stats-strip" id="stats-strip"></div>
+      <div class="tabs">
+        <div class="tab active" onclick="setTab(this,'retard')">En retard <span id="tab-cnt-retard" style="background:var(--red);color:white;font-size:.68rem;padding:1px 6px;border-radius:100px;margin-left:4px"></span></div>
+        <div class="tab" onclick="setTab(this,'envoyee')">Factures envoyées</div>
+        <div class="tab" onclick="setTab(this,'historique')">Historique des relances</div>
+      </div>
+      <div id="relance-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RELANCE -->
+<div class="modal-overlay" id="modal-relance" onclick="if(event.target===this)FP.closeModal('modal-relance')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <h3>Relance IA — <span id="r-client-name"></span></h3>
+        <div class="card-sub"><span id="r-invoice-info"></span></div>
+      </div>
+      <button class="modal-close" onclick="FP.closeModal('modal-relance')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="r-inv-id"/>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="kpi-card" style="flex:1;padding:14px;min-width:120px">
+          <div class="kpi-label">Montant dû</div>
+          <div class="kpi-val" id="r-amount" style="font-size:1.4rem;color:var(--red)"></div>
+        </div>
+        <div class="kpi-card" style="flex:1;padding:14px;min-width:120px">
+          <div class="kpi-label">Jours de retard</div>
+          <div class="kpi-val" id="r-days" style="font-size:1.4rem;color:var(--red)"></div>
+        </div>
+        <div class="kpi-card" style="flex:1;padding:14px;min-width:120px">
+          <div class="kpi-label">Relances déjà envoyées</div>
+          <div class="kpi-val" id="r-sent-count" style="font-size:1.4rem"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Choisissez le ton du message</label>
+        <div class="ton-grid" id="ton-grid">
+          <div class="ton-card active" onclick="selectTon(this,'cordial')" data-ton="cordial">
+            <h4>😊 Cordial</h4><p>1er retard · relation à préserver</p>
+          </div>
+          <div class="ton-card" onclick="selectTon(this,'ferme')" data-ton="ferme">
+            <h4>✋ Ferme</h4><p>2e relance · ton professionnel</p>
+          </div>
+          <div class="ton-card" onclick="selectTon(this,'urgent')" data-ton="urgent">
+            <h4>⚡ Urgent</h4><p>Retard important · action requise</p>
+          </div>
+          <div class="ton-card" onclick="selectTon(this,'mise en demeure')" data-ton="mise en demeure">
+            <h4>⚖️ Mise en demeure</h4><p>Ultime étape avant contentieux</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Message généré par l'IA</label>
+          <button class="btn btn-ghost btn-sm" onclick="regenerate()">↻ Régénérer</button>
+        </div>
+        <div class="ai-preview" id="ai-preview"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Canal d'envoi</label>
+          <select class="form-control" id="r-canal">
+            <option value="email">Email uniquement</option>
+            <option value="sms">SMS uniquement</option>
+            <option value="email+sms">Email + SMS</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date d'envoi</label>
+          <input type="date" class="form-control" id="r-date"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Personnaliser le message (optionnel)</label>
+        <textarea class="form-control" id="r-custom" placeholder="Laissez vide pour utiliser le message IA…" style="min-height:60px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="FP.closeModal('modal-relance')">Annuler</button>
+      <button class="btn btn-navy" onclick="sendRelance()">
+        <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Envoyer la relance
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+FP.renderSidebar('relances');
+let currentTab = 'retard';
+let currentTon = 'cordial';
+let currentInv = null;
+
+function setTab(el, tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function renderStats() {
+  const invs = FP.getInvoices();
+  const retard = invs.filter(i=>i.statut==='retard');
+  const retardMontant = retard.reduce((s,i)=>s+i.montantTTC,0);
+  const allRelances = invs.flatMap(i=>i.relances||[]);
+  const thisMonth = allRelances.filter(r=>r.date>=new Date().toISOString().slice(0,7)).length;
+  document.getElementById('stats-strip').innerHTML = `
+    <div class="stat-box"><div class="num" style="color:var(--red)">${retard.length}</div><div class="lbl">Factures en retard</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--red)">${FP.money(retardMontant)}</div><div class="lbl">Montant en retard</div></div>
+    <div class="stat-box"><div class="num">${allRelances.length}</div><div class="lbl">Relances envoyées</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--green)">${thisMonth}</div><div class="lbl">Ce mois</div></div>
+  `;
+  document.getElementById('tab-cnt-retard').textContent = retard.length;
+}
+
+function renderList() {
+  const invs = FP.getInvoices();
+  let items = [];
+  if (currentTab === 'retard') items = invs.filter(i=>i.statut==='retard');
+  else if (currentTab === 'envoyee') items = invs.filter(i=>i.statut==='envoyee');
+  else items = invs.filter(i=>(i.relances||[]).length>0);
+
+  if (!items.length) {
+    document.getElementById('relance-list').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><h4>${currentTab==='retard'?'Aucune facture en retard ✓':'Aucune donnée'}</h4><p>${currentTab==='retard'?'Tout est à jour ! Vos relances IA ont bien fonctionné.':'Aucune facture dans cette catégorie.'}</p></div>`;
+    return;
+  }
+
+  document.getElementById('relance-list').innerHTML = items.map(inv=>{
+    const late = inv.statut==='retard'?FP.daysLate(inv.dateEcheance):0;
+    const urgent = late > 30;
+    const relances = inv.relances||[];
+    return `<div class="relance-card ${urgent?'urgent':''}">
+      <div class="relance-header">
+        <div>
+          <div class="relance-client">${inv.clientNom}</div>
+          <div class="relance-num">${inv.numero} · ${inv.objet}</div>
+        </div>
+        <div class="relance-amount">${FP.money(inv.montantTTC)}</div>
+      </div>
+      <div class="relance-meta">
+        <div class="meta-item"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Échéance : ${FP.dateStr(inv.dateEcheance)}</div>
+        ${late>0?`<div class="meta-item" style="color:var(--red)"><svg viewBox="0 0 24 24" style="fill:var(--red)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg><strong>${late} jours de retard</strong></div>`:''}
+        <div class="meta-item"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${relances.length} relance(s) envoyée(s)</div>
+      </div>
+      ${relances.length?`<div class="relance-history">${relances.map(r=>`<span class="hist-chip">${FP.dateStr(r.date)} · ${r.ton||'cordial'} · ${r.type||'email'}</span>`).join('')}</div>`:''}
+      <div class="relance-actions">
+        ${inv.statut==='retard'?`
+          <button class="btn btn-primary btn-sm" onclick="openRelance('${inv.id}')">
+            <svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Relancer via IA
+          </button>
+          <button class="btn btn-success btn-sm" onclick="markPaid('${inv.id}')">✓ Marquer payée</button>
+        `:'<button class="btn btn-ghost btn-sm" onclick="openRelance(\''+inv.id+'\')">Envoyer un rappel</button>'}
+        <button class="btn btn-ghost btn-sm" onclick="window.location.href='factures.html?id=${inv.id}'">Voir la facture</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openRelance(invId) {
+  currentInv = FP.getInvoice(invId);
+  if (!currentInv) return;
+  currentTon = 'cordial';
+  document.getElementById('r-inv-id').value = invId;
+  document.getElementById('r-client-name').textContent = currentInv.clientNom;
+  document.getElementById('r-invoice-info').textContent = `${currentInv.numero} · Échéance ${FP.dateStr(currentInv.dateEcheance)}`;
+  document.getElementById('r-amount').textContent = FP.money(currentInv.montantTTC);
+  document.getElementById('r-days').textContent = currentInv.statut==='retard'?`+${FP.daysLate(currentInv.dateEcheance)} j`:'—';
+  document.getElementById('r-sent-count').textContent = (currentInv.relances||[]).length;
+  document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('r-custom').value = '';
+  // Auto-suggest tone based on history
+  const sentCount = (currentInv.relances||[]).length;
+  if (sentCount===0) currentTon='cordial';
+  else if (sentCount===1) currentTon='ferme';
+  else if (sentCount===2) currentTon='urgent';
+  else currentTon='mise en demeure';
+  document.querySelectorAll('.ton-card').forEach(c=>{
+    c.classList.toggle('active', c.dataset.ton===currentTon);
+  });
+  updatePreview();
+  _variantIdx = 0;
+  FP.openModal('modal-relance');
+}
+
+function selectTon(el, ton) {
+  currentTon = ton;
+  document.querySelectorAll('.ton-card').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  updatePreview();
+}
+
+function updatePreview() {
+  if (!currentInv) return;
+  const canal = document.getElementById('r-canal')?.value||'email';
+  const isSms = canal==='sms';
+  const msg = FP.getRelanceMessage(currentInv, currentTon, isSms?'sms':'email');
+  document.getElementById('ai-preview').textContent = msg;
+}
+
+let _variantIdx = 0;
+function regenerate() {
+  if (!currentInv) return;
+  const user = FP.getUser();
+  const late = FP.daysLate(currentInv.dateEcheance);
+  const montant = FP.money(currentInv.montantTTC);
+  // Variants per ton (3 variations each)
+  const variants = {
+    cordial: [
+      `Bonjour,\n\nJ'espère que vous allez bien. Je me permets de vous contacter au sujet de la facture ${currentInv.numero} d'un montant de ${montant}, dont l'échéance était fixée au ${FP.dateStr(currentInv.dateEcheance)}.\n\nÀ ce jour, il semble que ce règlement n'ait pas encore été effectué. S'agit-il d'un simple oubli ? Pourriez-vous me confirmer la date à laquelle ce paiement sera effectué ?\n\nJe reste à votre disposition pour tout renseignement.\n\nCordialement,\n${user.prenom} ${user.nom}\n${user.entreprise}`,
+      `Bonjour,\n\nJe reviens vers vous concernant la facture ${currentInv.numero} (${montant}) émise le ${FP.dateStr(currentInv.dateEmission)} et échue le ${FP.dateStr(currentInv.dateEcheance)}.\n\nNous n'avons pas encore reçu votre règlement. Peut-être s'agit-il d'un oubli ou d'un problème technique ? N'hésitez pas à me contacter si vous rencontrez une difficulté.\n\nBien cordialement,\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+      `Bonjour,\n\nJe me permets de vous rappeler que la facture ${currentInv.numero} d'un montant de ${montant} est arrivée à échéance le ${FP.dateStr(currentInv.dateEcheance)}.\n\nPourriez-vous me faire parvenir votre règlement dans les prochains jours, ou m'indiquer si vous souhaitez convenir d'un arrangement ?\n\nCordialement,\n${user.prenom} ${user.nom}\n${user.entreprise}`,
+    ],
+    ferme: [
+      `Madame, Monsieur,\n\nMalgré mon précédent contact, la facture ${currentInv.numero} d'un montant de ${montant} reste impayée — soit ${late} jours de retard.\n\nJe vous mets formellement en demeure de régler cette somme dans les 5 jours ouvrés. À défaut, je serai contraint(e) d'engager une procédure de recouvrement incluant des pénalités de retard (taux BCE + 10 pts) et une indemnité forfaitaire de 40 €.\n\nCordialement,\n${user.prenom} ${user.nom}`,
+      `Madame, Monsieur,\n\nNotre facture ${currentInv.numero} (${montant}), due depuis ${late} jours, demeure à ce jour impayée malgré notre premier rappel.\n\nNous vous demandons de bien vouloir régulariser cette situation sous 5 jours ouvrés. Passé ce délai, nous nous verrons dans l'obligation d'appliquer les pénalités de retard légales ainsi que l'indemnité forfaitaire de recouvrement de 40 €.\n\nDans l'attente de votre règlement,\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+      `Madame, Monsieur,\n\nSauf erreur ou omission de notre part, votre règlement relatif à la facture ${currentInv.numero} de ${montant} (échéance ${FP.dateStr(currentInv.dateEcheance)}) n'est toujours pas parvenu à notre comptabilité.\n\nNous vous invitons à régulariser ce solde sous 5 jours. Sans réponse, des pénalités de retard seront automatiquement appliquées.\n\nCordialement,\n${user.prenom} ${user.nom}`,
+    ],
+    urgent: [
+      `RAPPEL URGENT — Facture impayée\n\nLa facture ${currentInv.numero} (${montant}) est en retard de ${late} jours.\n\nDes pénalités de retard s'appliquent d'ores et déjà (taux légal BCE + 10 pts) ainsi qu'une indemnité forfaitaire de recouvrement de 40 €.\n\nMerci de régulariser cette situation dans les 48 heures.\n\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+      `URGENT — Règlement requis sous 48h\n\nMalgré nos relances, la facture ${currentInv.numero} (${montant}) reste impayée depuis ${late} jours.\n\nSi ce règlement n'est pas reçu dans les 48 heures, nous serons contraints d'engager une procédure de recouvrement judiciaire. Les frais associés (huissier, tribunal) resteront à votre charge.\n\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+      `DERNIER AVERTISSEMENT\n\nFacture ${currentInv.numero} · ${montant} · Retard : ${late} jours\n\nNos tentatives de résolution amiable sont restées sans effet. Vous disposez de 48 heures pour régler la totalité du montant dû, pénalités incluses.\n\nPassé ce délai, le dossier sera transmis à notre service contentieux.\n\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+    ],
+    'mise en demeure': [
+      `MISE EN DEMEURE\n\nPar la présente, ${user.entreprise}, représentée par ${user.prenom} ${user.nom}, met formellement en demeure votre société de régler la somme de ${montant} correspondant à la facture ${currentInv.numero} émise le ${FP.dateStr(currentInv.dateEmission)}.\n\nÀ défaut de règlement dans un délai de 8 jours à compter de la réception de ce courrier, un dossier contentieux sera constitué et transmis à un huissier de justice pour recouvrement forcé.\n\nFait le ${FP.dateStr(new Date().toISOString())}.\n${user.prenom} ${user.nom}`,
+      `MISE EN DEMEURE — LETTRE RECOMMANDÉE\n\nNous, ${user.entreprise} (${user.siren||'SIREN'}), mettons en demeure ${currentInv.clientNom} de s'acquitter sans délai de la somme de ${montant} au titre de la facture ${currentInv.numero}.\n\nCette créance, exigible depuis le ${FP.dateStr(currentInv.dateEcheance)}, est majorée des intérêts de retard au taux légal ainsi que de l'indemnité forfaitaire de 40 € prévue par l'article L.441-10 du Code de commerce.\n\nEn l'absence de règlement sous 8 jours, nous saisirons le tribunal compétent.\n\n${user.prenom} ${user.nom} — ${user.entreprise}`,
+      `MISE EN DEMEURE DE PAYER\n\nObjet : Recouvrement facture ${currentInv.numero} — ${montant}\n\nEn l'absence de règlement malgré nos relances successives, nous vous mettons en demeure de payer la somme de ${montant} dans un délai de 8 jours.\n\nPassé ce délai, nous engagerons sans autre préavis une procédure judiciaire d'injonction de payer. Les frais de procédure et honoraires d'avocat resteront intégralement à votre charge.\n\nFait le ${FP.dateStr(new Date().toISOString())}.\n${user.prenom} ${user.nom}\n${user.entreprise}`,
+    ],
+  };
+  const toneVariants = variants[currentTon] || variants.cordial;
+  _variantIdx = (_variantIdx + 1) % toneVariants.length;
+  document.getElementById('ai-preview').textContent = toneVariants[_variantIdx];
+  FP.toast(`Variante ${_variantIdx + 1}/${toneVariants.length} générée`, 'info');
+}
+
+document.addEventListener('change', e=>{ if(e.target.id==='r-canal') updatePreview(); });
+
+function sendRelance() {
+  const invId = document.getElementById('r-inv-id').value;
+  const canal = document.getElementById('r-canal').value;
+  const custom = document.getElementById('r-custom').value.trim();
+  FP.addRelance(invId, { type:canal, ton:currentTon, message:custom||undefined });
+  FP.toast(`Relance ${currentTon} envoyée à ${currentInv?.clientNom} via ${canal} ✓`);
+  FP.closeModal('modal-relance');
+  renderStats();
+  renderList();
+}
+
+function markPaid(invId) {
+  FP.updateInvoice(invId, {statut:'payee'});
+  FP.toast('Facture marquée comme payée ✓', 'success');
+  renderStats();
+  renderList();
+}
+
+function sendAll() {
+  const overdues = FP.getInvoices().filter(i=>i.statut==='retard');
+  if (!overdues.length) { FP.toast('Aucune facture en retard à relancer', 'info'); return; }
+  const today = new Date().toISOString().split('T')[0];
+  const toRelance = overdues.filter(inv => {
+    const relances = inv.relances || [];
+    return !relances.some(r => r.date === today);
+  });
+  if (!toRelance.length) { FP.toast('Toutes les relances du jour ont déjà été envoyées', 'info'); return; }
+  FP.confirm(`Envoyer ${toRelance.length} relance(s) IA automatiquement (ton adapté à chaque retard) ?`, ()=>{
+    toRelance.forEach(inv=>{
+      const count = (inv.relances||[]).length;
+      const ton = count===0?'cordial':count===1?'ferme':count===2?'urgent':'mise en demeure';
+      FP.addRelance(inv.id, { type:'email', ton });
+    });
+    FP.toast(`${toRelance.length} relance(s) IA envoyées automatiquement !`);
+    renderStats(); renderList();
+  });
+}
+
+function refreshList() { FP.init(); renderStats(); renderList(); FP.toast('Liste actualisée', 'info'); }
+
+// Check URL param
+const urlP = new URLSearchParams(location.search);
+if (urlP.get('id')) { setTimeout(()=>openRelance(urlP.get('id')),200); }
+
+renderStats();
+renderList();
+</script>
+</body>
+</html>

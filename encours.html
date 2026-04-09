@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Encours & Analytics — FacturePilot AI</title>
+<link rel="stylesheet" href="assets/app.css"/>
+<style>
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+.chart-container{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.chart-title{font-size:.95rem;font-weight:700;color:var(--navy);margin-bottom:4px}
+.chart-sub{font-size:.78rem;color:var(--text-muted);margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:140px;padding:0 4px}
+.bc-bar{flex:1;border-radius:4px 4px 0 0;cursor:pointer;transition:opacity .2s;position:relative}
+.bc-bar:hover{opacity:.8}
+.bc-bar:hover::after{content:attr(title);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--navy);color:white;font-size:.72rem;padding:3px 8px;border-radius:4px;white-space:nowrap;z-index:10}
+.bc-labels{display:flex;gap:8px;margin-top:6px}
+.bc-label{flex:1;text-align:center;font-size:.68rem;color:var(--text-muted)}
+.donut-wrap{display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 0}
+.donut-svg{width:120px;height:120px;flex-shrink:0}
+.donut-legend{display:flex;flex-direction:column;gap:8px}
+.donut-item{display:flex;align-items:center;gap:8px;font-size:.83rem}
+.donut-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.encours-table .data-table td{vertical-align:middle}
+.progress-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+.aging-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.aging-card{background:white;border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.aging-card .range{font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.aging-card .amount{font-size:1.2rem;font-weight:800;color:var(--navy)}
+.aging-card .count{font-size:.78rem;color:var(--text-muted);margin-top:3px}
+.aging-card.overdue{border-color:var(--red)}
+.aging-card.overdue .amount{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left"><h2>Encours & Analytics</h2><div class="breadcrumb">Tableau de bord financier · Pilotage trésorerie</div></div>
+      <div class="topbar-right">
+        <select class="btn btn-ghost btn-sm" id="period-select" onchange="renderAll()">
+          <option value="3">3 derniers mois</option>
+          <option value="6" selected>6 derniers mois</option>
+          <option value="12">12 derniers mois</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Exporter CSV</button>
+      </div>
+    </div>
+    <div class="page-content">
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- AGING -->
+      <div style="margin-bottom:6px;font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Balance âgée</div>
+      <div class="aging-grid" id="aging-grid"></div>
+
+      <!-- CHARTS -->
+      <div class="analytics-grid">
+        <div class="chart-container">
+          <div class="chart-title">Chiffre d'affaires mensuel</div>
+          <div class="chart-sub" id="ca-sub"></div>
+          <div class="bar-chart" id="ca-chart"></div>
+          <div class="bc-labels" id="ca-labels"></div>
+        </div>
+        <div class="chart-container">
+          <div class="chart-title">Répartition par statut</div>
+          <div class="chart-sub">Montant total facturé</div>
+          <div class="donut-wrap" id="donut-wrap"></div>
+        </div>
+        <div class="chart-container">
+          <div class="chart-title">Délai moyen de paiement</div>
+          <div class="chart-sub">Jours entre émission et paiement</div>
+          <div class="bar-chart" id="dmp-chart"></div>
+          <div class="bc-labels" id="dmp-labels"></div>
+        </div>
+        <div class="chart-container">
+          <div class="chart-title">Top clients par CA</div>
+          <div class="chart-sub">Contribution au chiffre d'affaires</div>
+          <div id="top-clients"></div>
+        </div>
+      </div>
+
+      <!-- ENCOURS TABLE -->
+      <div class="card encours-table">
+        <div class="card-header"><div><h3>Détail encours</h3><div class="card-sub" id="enc-sub"></div></div></div>
+        <table class="data-table">
+          <thead><tr><th>Client</th><th>N° Facture</th><th>Montant TTC</th><th>Échéance</th><th>Retard</th><th>Statut</th><th>Risque</th><th>Action</th></tr></thead>
+          <tbody id="enc-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="assets/app.js"></script>
+<script>
+FP.renderSidebar('encours');
+
+function renderAll() {
+  const invs = FP.getInvoices();
+  const clients = FP.getClients();
+
+  // KPIs
+  const encours = invs.filter(i=>['envoyee','retard'].includes(i.statut));
+  const encoursMnt = encours.reduce((s,i)=>s+i.montantTTC,0);
+  const retardMnt = invs.filter(i=>i.statut==='retard').reduce((s,i)=>s+i.montantTTC,0);
+  const payeeMnt = invs.filter(i=>i.statut==='payee').reduce((s,i)=>s+i.montantTTC,0);
+  const total = invs.reduce((s,i)=>s+i.montantTTC,0);
+  const taux = total>0?Math.round(payeeMnt/total*100):0;
+  const payedInvs = invs.filter(i => i.statut === 'payee' && i.dateEmission && i.dateEcheance);
+  const delaiMoyen = payedInvs.length > 0
+    ? Math.round(payedInvs.reduce((s, i) => {
+        return s + Math.max(0, Math.floor((new Date(i.dateEcheance) - new Date(i.dateEmission)) / (1000*60*60*24)));
+      }, 0) / payedInvs.length)
+    : 0;
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon orange"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></div><span class="kpi-trend trend-neutral">${encours.length} factures</span></div><div class="kpi-val">${FP.money(encoursMnt)}</div><div class="kpi-label">Encours total</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon red"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div><span class="kpi-trend trend-down">${invs.filter(i=>i.statut==='retard').length} factures</span></div><div class="kpi-val red">${FP.money(retardMnt)}</div><div class="kpi-label">Montant en retard</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon green"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div><span class="kpi-trend trend-up">↑ avec IA</span></div><div class="kpi-val">${taux}%</div><div class="kpi-label">Taux recouvrement</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon navy"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></div><span class="kpi-trend trend-neutral">objectif 30 j</span></div><div class="kpi-val">${delaiMoyen} j</div><div class="kpi-label">Délai moyen paiement</div></div>
+  `;
+
+  // Aging (balance âgée)
+  const now = new Date();
+  const buckets = [
+    { label:'À venir', min:-999, max:0, color:'var(--navy)' },
+    { label:'0–30 jours', min:0, max:30, color:'var(--orange)', overdue:true },
+    { label:'31–60 jours', min:30, max:60, color:'var(--red)', overdue:true },
+    { label:'+60 jours', min:60, max:9999, color:'#8b0000', overdue:true },
+  ];
+  const aItems = invs.filter(i=>['envoyee','retard'].includes(i.statut));
+  document.getElementById('aging-grid').innerHTML = buckets.map(b=>{
+    let items;
+    if (b.min===-999) {
+      items = aItems.filter(i=>FP.daysLate(i.dateEcheance)<0);
+    } else {
+      items = aItems.filter(i=>{ const d=FP.daysLate(i.dateEcheance); return d>=b.min && d<b.max; });
+    }
+    const mnt = items.reduce((s,i)=>s+i.montantTTC,0);
+    return `<div class="aging-card ${b.overdue&&mnt>0?'overdue':''}">
+      <div class="range">${b.label}</div>
+      <div class="amount" style="color:${mnt>0&&b.overdue?b.color:'var(--navy)'}">${FP.money(mnt)}</div>
+      <div class="count">${items.length} facture(s)</div>
+    </div>`;
+  }).join('');
+
+  // CA Chart — real data from invoices
+  const MOIS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const period = parseInt(document.getElementById('period-select').value) || 6;
+  const now2 = new Date();
+  const caMonths = [];
+  for (let i = period - 1; i >= 0; i--) {
+    const d = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
+    const yr = d.getFullYear(), mo = d.getMonth();
+    const mInvs = invs.filter(inv => {
+      if (!inv.dateEmission || inv.statut === 'brouillon') return false;
+      const em = new Date(inv.dateEmission);
+      return em.getFullYear() === yr && em.getMonth() === mo;
+    });
+    caMonths.push({ label: MOIS_FR[mo], val: mInvs.reduce((s,i) => s + i.montantTTC, 0) });
+  }
+  const maxCA = Math.max(...caMonths.map(m => m.val), 1);
+  document.getElementById('ca-sub').textContent = `Total : ${FP.money(caMonths.reduce((s,m) => s+m.val, 0))}`;
+  document.getElementById('ca-chart').innerHTML = caMonths.map(m =>
+    `<div class="bc-bar" style="height:${Math.max(4,m.val/maxCA*130)}px;background:var(--navy)" title="${m.label}: ${FP.money(m.val)}"></div>`
+  ).join('');
+  document.getElementById('ca-labels').innerHTML = caMonths.map(m => `<div class="bc-label">${m.label}</div>`).join('');
+
+  // Donut
+  const paidMnt = invs.filter(i=>i.statut==='payee').reduce((s,i)=>s+i.montantTTC,0);
+  const sentMnt = invs.filter(i=>i.statut==='envoyee').reduce((s,i)=>s+i.montantTTC,0);
+  const retMnt = invs.filter(i=>i.statut==='retard').reduce((s,i)=>s+i.montantTTC,0);
+  const draftMnt = invs.filter(i=>i.statut==='brouillon').reduce((s,i)=>s+i.montantTTC,0);
+  const tot2 = paidMnt+sentMnt+retMnt+draftMnt||1;
+  const segments = [
+    { color:'var(--green)', label:'Payées', val:paidMnt, pct:paidMnt/tot2 },
+    { color:'var(--navy)', label:'Envoyées', val:sentMnt, pct:sentMnt/tot2 },
+    { color:'var(--red)', label:'En retard', val:retMnt, pct:retMnt/tot2 },
+    { color:'var(--border)', label:'Brouillons', val:draftMnt, pct:draftMnt/tot2 },
+  ].filter(s=>s.val>0);
+  let offset = 0;
+  const r=40, cx=60, cy=60, circ=2*Math.PI*r;
+  const paths = segments.map(s=>{
+    const dash = s.pct*circ; const gap = circ-dash;
+    const el = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" style="transition:stroke-dasharray .5s"/>`;
+    offset += dash; return el;
+  }).join('');
+  document.getElementById('donut-wrap').innerHTML = `
+    <svg class="donut-svg" viewBox="0 0 120 120" style="transform:rotate(-90deg)">${paths}</svg>
+    <div class="donut-legend">${segments.map(s=>`<div class="donut-item"><div class="donut-dot" style="background:${s.color}"></div><div><div style="font-weight:600;font-size:.83rem">${s.label}</div><div style="font-size:.75rem;color:var(--text-muted)">${FP.money(s.val)}</div></div></div>`).join('')}</div>
+  `;
+
+  // DMP chart — délai moyen par mois (jours entre émission et échéance des factures payées)
+  const dmpMonths = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
+    const yr = d.getFullYear(), mo = d.getMonth();
+    const mPaid = invs.filter(inv => {
+      if (inv.statut !== 'payee' || !inv.dateEmission) return false;
+      const em = new Date(inv.dateEmission);
+      return em.getFullYear() === yr && em.getMonth() === mo;
+    });
+    const avg = mPaid.length > 0
+      ? Math.round(mPaid.reduce((s,inv) => s + Math.max(0,Math.floor((new Date(inv.dateEcheance)-new Date(inv.dateEmission))/(1000*60*60*24))), 0) / mPaid.length)
+      : 0;
+    dmpMonths.push({ label: MOIS_FR[d.getMonth()], val: avg });
+  }
+  const maxDmp = Math.max(...dmpMonths.map(m => m.val), 1);
+  document.getElementById('dmp-chart').innerHTML = dmpMonths.map(m =>
+    `<div class="bc-bar" style="height:${Math.max(m.val > 0 ? 4 : 0, m.val/maxDmp*130)}px;background:${m.val>45?'var(--red)':m.val>30?'var(--orange)':'var(--green)'}" title="${m.label}: ${m.val > 0 ? m.val+' jours' : 'Aucune donnée'}"></div>`
+  ).join('');
+  document.getElementById('dmp-labels').innerHTML = dmpMonths.map(m => `<div class="bc-label">${m.label}</div>`).join('');
+
+  // Top clients
+  const clientTotals = clients.map(c=>({
+    nom:c.nom,
+    total:invs.filter(i=>i.clientId===c.id).reduce((s,i)=>s+i.montantTTC,0)
+  })).sort((a,b)=>b.total-a.total).slice(0,5);
+  const maxT = clientTotals[0]?.total||1;
+  document.getElementById('top-clients').innerHTML = clientTotals.map(c=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:.85rem">
+        <span style="font-weight:600">${c.nom}</span>
+        <span style="font-weight:700">${FP.money(c.total)}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${c.total/maxT*100}%;background:var(--navy)"></div></div>
+    </div>`).join('');
+
+  // Encours table
+  const encList = invs.filter(i=>['envoyee','retard'].includes(i.statut)).sort((a,b)=>FP.daysLate(b.dateEcheance)-FP.daysLate(a.dateEcheance));
+  const client4 = (id) => FP.getClient(id);
+  document.getElementById('enc-sub').textContent = `${encList.length} facture(s) · ${FP.money(encoursMnt)}`;
+  document.getElementById('enc-body').innerHTML = encList.length ? encList.map(inv=>{
+    const late = FP.daysLate(inv.dateEcheance);
+    const c = client4(inv.clientId);
+    return `<tr>
+      <td><strong>${inv.clientNom}</strong></td>
+      <td style="color:var(--text-muted);font-size:.82rem">${inv.numero}</td>
+      <td><strong>${FP.money(inv.montantTTC)}</strong></td>
+      <td>${FP.dateStr(inv.dateEcheance)}</td>
+      <td>${late>0?`<span style="color:var(--red);font-weight:700">+${late} j</span>`:'<span style="color:var(--green)">À venir</span>'}</td>
+      <td><span class="badge ${FP.statusClass[inv.statut]}">${FP.statusLabel[inv.statut]}</span></td>
+      <td>${c?`<span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque}</span>`:'—'}</td>
+      <td>${inv.statut==='retard'?`<button class="btn btn-primary btn-sm" onclick="window.location.href='relances.html?id=${inv.id}'">Relancer</button>`:`<button class="btn btn-ghost btn-sm" onclick="FP.updateInvoice('${inv.id}',{statut:'payee'});FP.toast('Payée ✓');renderAll()">✓ Payée</button>`}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted)">Aucun encours en cours ✓</td></tr>';
+}
+
+function exportCSV() {
+  const invs = FP.getInvoices();
+  const rows = [['Numéro','Client','Objet','HT','TTC','Emission','Echeance','Statut']];
+  invs.forEach(i=>rows.push([i.numero,i.clientNom,i.objet,i.montantHT,i.montantTTC,i.dateEmission,i.dateEcheance,FP.statusLabel[i.statut]]));
+  const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='facturepilot-export.csv'; a.click();
+  FP.toast('Export CSV téléchargé !');
+}
+
+renderAll();
+</script>
+</body>
+</html>

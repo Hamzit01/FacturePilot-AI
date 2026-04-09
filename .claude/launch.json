@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "FacturePilot AI",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--no-warnings", "backend/server.js"],
+      "cwd": "${workspaceRoot}",
+      "port": 3333
+    }
+  ]
+}

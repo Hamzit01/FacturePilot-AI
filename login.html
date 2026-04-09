@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Connexion — FacturePilot AI</title>
+<style>
+:root{--navy:#1B3A4B;--orange:#D4853B;--green:#1A7A3D;--red:#B8352A;--border:#CDD5DE;--bg:#F4F7FA;--text-muted:#6b7a8a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:white;border-radius:20px;padding:40px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(27,58,75,.12)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;justify-content:center}
+.logo-icon{width:40px;height:40px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:22px;height:22px;fill:white}
+.logo-text{font-weight:800;font-size:1.2rem;color:var(--navy)}
+.logo-text span{color:var(--orange)}
+h2{font-size:1.3rem;font-weight:800;color:var(--navy);margin-bottom:6px}
+.sub{font-size:.9rem;color:var(--text-muted);margin-bottom:28px}
+.form-group{margin-bottom:16px}
+label{display:block;font-size:.83rem;font-weight:600;color:var(--navy);margin-bottom:6px}
+input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:.92rem;outline:none;transition:border-color .2s;font-family:inherit}
+input:focus{border-color:var(--orange)}
+.btn{width:100%;padding:13px;background:var(--orange);color:white;border:none;border-radius:10px;font-size:.97rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn:hover{background:#e8965a;transform:translateY(-1px)}
+.divider{text-align:center;margin:20px 0;font-size:.82rem;color:var(--text-muted);position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border)}
+.divider::before{left:0}.divider::after{right:0}
+.link-row{text-align:center;font-size:.88rem;color:var(--text-muted);margin-top:16px}
+.link-row a{color:var(--orange);font-weight:600;cursor:pointer}
+.demo-box{background:rgba(212,133,59,.07);border:1px solid rgba(212,133,59,.25);border-radius:10px;padding:14px;margin-bottom:20px;font-size:.83rem;color:var(--text-muted)}
+.demo-box strong{color:var(--navy)}
+.error-msg{background:rgba(184,53,42,.08);border:1px solid rgba(184,53,42,.2);border-radius:8px;padding:10px 14px;font-size:.85rem;color:var(--red);margin-bottom:16px;display:none}
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></div>
+    <div class="logo-text">Facture<span>Pilot</span> AI</div>
+  </div>
+  <h2>Bienvenue</h2>
+  <p class="sub">Connectez-vous à votre espace FacturePilot AI</p>
+  <div class="demo-box">
+    <strong>Accès démo :</strong> hamza@facturepilot.ai / demo1234
+  </div>
+  <div class="error-msg" id="error-msg"></div>
+  <form id="login-form">
+    <div class="form-group">
+      <label>Adresse email</label>
+      <input type="email" id="email" placeholder="vous@entreprise.fr" value="hamza@facturepilot.ai" required/>
+    </div>
+    <div class="form-group">
+      <label>Mot de passe</label>
+      <input type="password" id="password" placeholder="••••••••" value="demo1234" required/>
+    </div>
+    <button type="submit" class="btn" id="login-btn">Se connecter →</button>
+  </form>
+  <div class="link-row" style="margin-top:12px"><a href="#" onclick="openForgot();return false">Mot de passe oublié ?</a></div>
+  <div class="divider">ou</div>
+  <div class="link-row">Pas encore de compte ? <a href="register.html">Créer un compte gratuit</a></div>
+</div>
+
+<!-- MODAL MOT DE PASSE OUBLIÉ -->
+<div id="modal-forgot" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.15)">
+    <h3 style="font-size:1.1rem;font-weight:800;color:var(--navy);margin-bottom:6px" id="forgot-title">Réinitialiser le mot de passe</h3>
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:20px" id="forgot-sub">Entrez votre adresse email. Vous recevrez un code de vérification.</p>
+    <!-- Étape 1 : email -->
+    <div id="forgot-step1">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:.82rem;font-weight:600;color:var(--navy);margin-bottom:5px">Adresse email</label>
+        <input id="forgot-email" type="email" placeholder="vous@entreprise.fr" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;outline:none;font-family:inherit"/>
+      </div>
+      <div id="forgot-err1" style="font-size:.83rem;color:var(--red);margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeForgot()" style="flex:1;padding:11px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:.9rem">Annuler</button>
+        <button id="forgot-btn1" onclick="sendResetCode()" style="flex:2;padding:11px;background:var(--orange);color:white;border:none;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer">Envoyer le code →</button>
+      </div>
+    </div>
+    <!-- Étape 2 : code + nouveau mdp -->
+    <div id="forgot-step2" style="display:none">
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:.82rem;font-weight:600;color:var(--navy);margin-bottom:5px">Code de vérification (6 chiffres)</label>
+        <input id="forgot-code" type="text" placeholder="123456" maxlength="6" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:1.1rem;letter-spacing:.2em;text-align:center;outline:none;font-family:inherit"/>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:.82rem;font-weight:600;color:var(--navy);margin-bottom:5px">Nouveau mot de passe</label>
+        <input id="forgot-newpwd" type="password" placeholder="8 caractères minimum" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;outline:none;font-family:inherit"/>
+      </div>
+      <div id="forgot-err2" style="font-size:.83rem;color:var(--red);margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeForgot()" style="flex:1;padding:11px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:.9rem">Annuler</button>
+        <button id="forgot-btn2" onclick="resetPassword()" style="flex:2;padding:11px;background:var(--orange);color:white;border:none;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer">Changer le mot de passe →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Auto-redirect if already logged in
+if (localStorage.getItem('fp_token')) window.location.href = 'dashboard.html';
+
+document.getElementById('login-form').onsubmit = async function(e) {
+  e.preventDefault();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('error-msg');
+  const btn      = document.getElementById('login-btn');
+  errEl.style.display = 'none';
+  btn.textContent = 'Connexion…'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Identifiants incorrects');
+    localStorage.setItem('fp_token', data.token);
+    localStorage.setItem('fp_logged', '1');
+    localStorage.setItem('fp_user', JSON.stringify(data.user));
+    // Pre-load data so dashboard renders instantly with real data
+    btn.textContent = 'Chargement…';
+    const hdrs = { Authorization: `Bearer ${data.token}` };
+    await Promise.all([
+      fetch('/api/clients',  { headers: hdrs }).then(r => r.json()).then(d => localStorage.setItem('fp_clients', JSON.stringify(d))),
+      fetch('/api/invoices', { headers: hdrs }).then(r => r.json()).then(d => localStorage.setItem('fp_invoices', JSON.stringify(d))),
+    ]);
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.textContent = 'Se connecter →'; btn.disabled = false;
+  }
+};
+
+// ─── Mot de passe oublié ──────────────────────────────────────────────────────
+function openForgot() {
+  const m = document.getElementById('modal-forgot');
+  m.style.display = 'flex';
+  document.getElementById('forgot-step1').style.display = 'block';
+  document.getElementById('forgot-step2').style.display = 'none';
+  document.getElementById('forgot-email').value = document.getElementById('email').value;
+  document.getElementById('forgot-err1').style.display = 'none';
+  document.getElementById('forgot-title').textContent = 'Réinitialiser le mot de passe';
+  document.getElementById('forgot-sub').textContent = 'Entrez votre adresse email. Vous recevrez un code de vérification.';
+}
+
+function closeForgot() {
+  document.getElementById('modal-forgot').style.display = 'none';
+}
+
+async function sendResetCode() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const errEl = document.getElementById('forgot-err1');
+  const btn   = document.getElementById('forgot-btn1');
+  if (!email) { errEl.textContent = 'Veuillez saisir votre email.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.textContent = 'Envoi…'; btn.disabled = true;
+  try {
+    const res  = await fetch('/api/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur');
+    // Passer à l'étape 2
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'block';
+    document.getElementById('forgot-sub').textContent = data.message || `Code envoyé à ${email}`;
+    document.getElementById('forgot-err2').style.display = 'none';
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Envoyer le code →'; btn.disabled = false;
+  }
+}
+
+async function resetPassword() {
+  const email  = document.getElementById('forgot-email').value.trim();
+  const code   = document.getElementById('forgot-code').value.trim();
+  const newPwd = document.getElementById('forgot-newpwd').value;
+  const errEl  = document.getElementById('forgot-err2');
+  const btn    = document.getElementById('forgot-btn2');
+  if (!code || !newPwd) { errEl.textContent = 'Remplissez tous les champs.'; errEl.style.display = 'block'; return; }
+  if (newPwd.length < 6) { errEl.textContent = 'Mot de passe trop court (6 min).'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.textContent = 'Vérification…'; btn.disabled = true;
+  try {
+    const res  = await fetch('/api/auth/reset-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, newPassword: newPwd }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Code invalide ou expiré');
+    closeForgot();
+    // Pré-remplir l'email et afficher succès
+    document.getElementById('email').value = email;
+    const errMain = document.getElementById('error-msg');
+    errMain.style.color = 'var(--green)';
+    errMain.style.background = 'rgba(26,122,61,.08)';
+    errMain.style.borderColor = 'rgba(26,122,61,.2)';
+    errMain.textContent = '✓ Mot de passe mis à jour ! Connectez-vous avec votre nouveau mot de passe.';
+    errMain.style.display = 'block';
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Changer le mot de passe →'; btn.disabled = false;
+  }
+}
+
+// Fermer modal en cliquant en dehors
+document.getElementById('modal-forgot').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-forgot')) closeForgot();
+});
+</script>
+</body>
+</html>
