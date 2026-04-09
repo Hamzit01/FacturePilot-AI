@@ -187,10 +187,10 @@ async function initDB() {
 }
 
 // Lance l'init, expose la promise pour le middleware server.js
+// NE PAS appeler process.exit() — laisser le middleware server.js retourner 503
 const ready = initDB().catch(err => {
   console.error('[DB] Erreur d\'initialisation :', err.message);
-  if (process.env.NODE_ENV === 'production') process.exit(1);
-  throw err;
+  throw err; // la promise rejetée sera gérée par le middleware db.ready dans server.js
 });
 
 module.exports = pool;

@@ -24,6 +24,17 @@ app.use(helmet({
 // ─── Compression ─────────────────────────────────────────────────────────────
 app.use(compression());
 
+// ─── Health check (AVANT db.ready — toujours accessible) ─────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    ts: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development',
+    version: require('./package.json').version,
+    db: process.env.DATABASE_URL ? '✅ DATABASE_URL défini' : '❌ DATABASE_URL MANQUANT',
+  });
+});
+
 // ─── DB ready middleware ──────────────────────────────────────────────────────
 app.use(async (req, res, next) => {
   try {
@@ -81,16 +92,6 @@ app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/me',       require('./routes/user'));
 app.use('/api/clients',  require('./routes/clients'));
 app.use('/api/invoices', require('./routes/invoices'));
-
-// ─── Health check ─────────────────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    ts: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development',
-    version: require('./package.json').version,
-  });
-});
 
 // ─── Static files (frontend) ─────────────────────────────────────────────────
 const STATIC_DIR = path.join(__dirname, '..');
