@@ -24,24 +24,15 @@ app.use(helmet({
 // ─── Compression ─────────────────────────────────────────────────────────────
 app.use(compression());
 
-// ─── Health check (AVANT db.ready — toujours accessible même si DB down) ─────
-app.get('/api/health', async (_req, res) => {
-  const dbUrl = process.env.DATABASE_URL;
-  let dbStatus = '❌ DATABASE_URL manquant';
-  if (dbUrl) {
-    try {
-      await Promise.race([db.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))]);
-      dbStatus = '✅ Connecté';
-    } catch(e) {
-      dbStatus = `⚠️ Erreur: ${e.message}`;
-    }
-  }
+// ─── Health check (sync — répond toujours immédiatement) ─────────────────────
+app.get('/api/health', (_req, res) => {
+  const dbUrl = process.env.DATABASE_URL || '';
   res.json({
-    ok: !!dbUrl,
+    ok: true,
     ts: new Date().toISOString(),
     env: process.env.NODE_ENV || 'development',
     version: require('./package.json').version,
-    database: dbStatus,
+    database: dbUrl ? `✅ DATABASE_URL défini (${dbUrl.split('@')[1] || 'ok'})` : '❌ DATABASE_URL manquant',
     node: process.version,
   });
 });

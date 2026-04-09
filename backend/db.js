@@ -17,7 +17,9 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost/facturepilot',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 8000,  // timeout connexion : 8s
+  idleTimeoutMillis: 30000,
+  max: 3,                         // max 3 connexions simultanées (serverless)
 });
 
 // ─── SEED: create demo user + data if DB is empty ────────────────────────────
