@@ -9,7 +9,7 @@ const compression = require('compression');
 const rateLimit  = require('express-rate-limit');
 
 // ─── Init DB (runs schema + migration + seed on first launch) ────────────────
-require('./db');
+const db = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3333;
@@ -23,6 +23,16 @@ app.use(helmet({
 
 // ─── Compression ─────────────────────────────────────────────────────────────
 app.use(compression());
+
+// ─── DB ready middleware ──────────────────────────────────────────────────────
+app.use(async (req, res, next) => {
+  try {
+    await db.ready;
+    next();
+  } catch(err) {
+    res.status(503).json({ error: 'Base de données non disponible', details: err.message });
+  }
+});
 
 // ─── Request logging ─────────────────────────────────────────────────────────
 app.use(morgan(isProd ? 'combined' : 'dev'));

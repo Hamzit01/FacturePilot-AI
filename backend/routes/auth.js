@@ -7,38 +7,78 @@ const { sign } = require('../middleware/auth');
 const router = express.Router();
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
-  if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+    const user = (await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()])).rows[0];
+    if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
-  const ok = bcrypt.compareSync(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+    const ok = bcrypt.compareSync(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
-  const token = sign({ id: user.id, email: user.email });
-  res.json({ token, user: sanitize(user) });
+    const token = sign({ id: user.id, email: user.email });
+    res.json({ token, user: sanitize(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/auth/register
-router.post('/register', (req, res) => {
-  const { email, password, prenom, nom, entreprise, siren } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 chars min)' });
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, prenom, nom, entreprise, siren } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+    if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 chars min)' });
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
-  if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+    const existing = (await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()])).rows[0];
+    if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
 
-  const hash = bcrypt.hashSync(password, 10);
-  const { lastInsertRowid } = db.prepare(`
-    INSERT INTO users (email, password_hash, prenom, nom, entreprise, siren)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(email.toLowerCase().trim(), hash, prenom || '', nom || '', entreprise || '', siren || '');
+    const hash = bcrypt.hashSync(password, 10);
+    const { rows: [inserted] } = await db.query(`
+      INSERT INTO users (email, password_hash, prenom, nom, entreprise, siren)
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+    `, [email.toLowerCase().trim(), hash, prenom || '', nom || '', entreprise || '', siren || '']);
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid);
-  const token = sign({ id: user.id, email: user.email });
-  res.status(201).json({ token, user: sanitize(user) });
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [inserted.id])).rows[0];
+    const token = sign({ id: user.id, email: user.email });
+
+    // Envoyer email de bienvenue (ne pas bloquer la réponse)
+    const { sendMail } = require('../services/mailer');
+    sendMail({
+      to: email,
+      subject: '🎉 Bienvenue sur FacturePilot AI !',
+      html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+    <div style="background:#1B3A4B;padding:24px 28px;border-radius:10px 10px 0 0">
+      <h2 style="color:white;margin:0;font-size:1.4rem">FacturePilot AI</h2>
+      <div style="color:rgba(255,255,255,.65);font-size:.9rem;margin-top:4px">Facturation électronique conforme 2026</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 10px 10px">
+      <p style="color:#374151;font-size:1.05rem">Bonjour <strong>${prenom || ''} ${nom || ''}</strong>,</p>
+      <p style="color:#374151">Votre compte FacturePilot AI est prêt ! Vous pouvez dès maintenant :</p>
+      <ul style="color:#374151;line-height:1.8">
+        <li>✅ Créer et envoyer vos factures</li>
+        <li>✅ Gérer vos clients</li>
+        <li>✅ Générer des factures conformes Factur-X (réforme 2026)</li>
+        <li>✅ Suivre vos encours et relances</li>
+      </ul>
+      <div style="text-align:center;margin:24px 0">
+        <a href="https://facturepilot.vercel.app/login.html" style="background:#1B3A4B;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Accéder à mon espace →</a>
+      </div>
+      <p style="color:#6b7280;font-size:.85rem">Une question ? Répondez à cet email ou écrivez à <a href="mailto:contact@facturepilot.ai" style="color:#1B3A4B">contact@facturepilot.ai</a></p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
+      <p style="font-size:.78rem;color:#9ca3af;text-align:center">FacturePilot AI — Solution de facturation pour indépendants et TPE françaises</p>
+    </div>
+  </div>`,
+    }).catch(err => console.log('[Welcome email]', err.message));
+
+    res.status(201).json({ token, user: sanitize(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const sanitize = (u) => ({
@@ -46,7 +86,7 @@ const sanitize = (u) => ({
   entreprise: u.entreprise, siren: u.siren, tva: u.tva_num,
   adresse: u.adresse, tel: u.tel, iban: u.iban, bic: u.bic,
   plan: u.plan, couleurFacture: u.couleur_facture, logo: u.logo,
-  createdAt: u.created_at,
+  createdAt: u.created_at instanceof Date ? u.created_at.toISOString() : u.created_at,
 });
 
 // ─── Mot de passe oublié ────────────────────────────────────────────────────
@@ -59,7 +99,7 @@ router.post('/forgot-password', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email requis' });
 
   // On répond toujours avec succès pour ne pas divulguer les emails existants
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+  const user = (await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()])).rows[0];
   const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 chiffres
   const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
 
@@ -87,39 +127,49 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // POST /api/auth/reset-password
-router.post('/reset-password', (req, res) => {
-  const { email, code, newPassword } = req.body;
-  if (!email || !code || !newPassword) return res.status(400).json({ error: 'Champs requis manquants' });
-  if (newPassword.length < 6) return res.status(400).json({ error: 'Mot de passe trop court' });
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) return res.status(400).json({ error: 'Champs requis manquants' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Mot de passe trop court' });
 
-  const key   = email.toLowerCase().trim();
-  const entry = resetTokens.get(key);
-  if (!entry) return res.status(400).json({ error: 'Aucun code de réinitialisation pour cet email' });
-  if (Date.now() > entry.expires) { resetTokens.delete(key); return res.status(400).json({ error: 'Code expiré, veuillez recommencer' }); }
-  if (entry.code !== code.trim()) return res.status(400).json({ error: 'Code incorrect' });
+    const key   = email.toLowerCase().trim();
+    const entry = resetTokens.get(key);
+    if (!entry) return res.status(400).json({ error: 'Aucun code de réinitialisation pour cet email' });
+    if (Date.now() > entry.expires) { resetTokens.delete(key); return res.status(400).json({ error: 'Code expiré, veuillez recommencer' }); }
+    if (entry.code !== code.trim()) return res.status(400).json({ error: 'Code incorrect' });
 
-  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(key);
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const user = (await db.query('SELECT id FROM users WHERE email = $1', [key])).rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-  const hash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id);
-  resetTokens.delete(key);
-  res.json({ ok: true });
+    const hash = bcrypt.hashSync(newPassword, 10);
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+    resetTokens.delete(key);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/auth/password — change password
 const auth = require('../middleware/auth');
-router.post('/password', auth, (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Champs requis' });
-  if (newPassword.length < 6) return res.status(400).json({ error: 'Nouveau mot de passe trop court (6 chars min)' });
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-  const ok = bcrypt.compareSync(currentPassword, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
-  const hash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
-  res.json({ ok: true });
+router.post('/password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Champs requis' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Nouveau mot de passe trop court (6 chars min)' });
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const ok = bcrypt.compareSync(currentPassword, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+    const hash = bcrypt.hashSync(newPassword, 10);
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

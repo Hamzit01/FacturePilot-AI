@@ -11,78 +11,103 @@ const sanitize = (u) => ({
   entreprise: u.entreprise, siren: u.siren, tva: u.tva_num,
   adresse: u.adresse, tel: u.tel, iban: u.iban, bic: u.bic,
   plan: u.plan, couleurFacture: u.couleur_facture, logo: u.logo,
-  createdAt: u.created_at,
+  createdAt: u.created_at instanceof Date ? u.created_at.toISOString() : u.created_at,
 });
 
 // GET /api/me
-router.get('/', auth, (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-  res.json(sanitize(user));
+router.get('/', auth, async (req, res) => {
+  try {
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    res.json(sanitize(user));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PUT /api/me
-router.put('/', auth, (req, res) => {
-  const { prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo } = req.body;
-  db.prepare(`
-    UPDATE users SET prenom=?, nom=?, entreprise=?, siren=?, tva_num=?,
-      adresse=?, tel=?, iban=?, bic=?, couleur_facture=?, logo=?
-    WHERE id=?
-  `).run(prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo, req.user.id);
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  res.json(sanitize(user));
+router.put('/', auth, async (req, res) => {
+  try {
+    const { prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo } = req.body;
+    await db.query(`
+      UPDATE users SET prenom=$1, nom=$2, entreprise=$3, siren=$4, tva_num=$5,
+        adresse=$6, tel=$7, iban=$8, bic=$9, couleur_facture=$10, logo=$11
+      WHERE id=$12
+    `, [prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo, req.user.id]);
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
+    res.json(sanitize(user));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/me/stats  — dashboard KPIs
-router.get('/stats', auth, (req, res) => {
-  const uid = req.user.id;
-  const invs = db.prepare('SELECT * FROM invoices WHERE user_id = ?').all(uid);
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const { rows: invs } = await db.query('SELECT * FROM invoices WHERE user_id = $1', [uid]);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
-  const caMonth   = invs.filter(i => i.date_emission >= monthStart).reduce((s,i) => s + i.montant_ttc, 0);
-  const encours   = invs.filter(i => ['envoyee','retard'].includes(i.statut)).reduce((s,i) => s + i.montant_ttc, 0);
-  const retard    = invs.filter(i => i.statut === 'retard').reduce((s,i) => s + i.montant_ttc, 0);
-  const retardCount = invs.filter(i => i.statut === 'retard').length;
-  const payees    = invs.filter(i => i.statut === 'payee').reduce((s,i) => s + i.montant_ttc, 0);
-  const total     = invs.reduce((s,i) => s + i.montant_ttc, 0);
-  const taux      = total > 0 ? Math.round(payees / total * 100) : 0;
+    const caMonth   = invs.filter(i => i.date_emission >= monthStart).reduce((s,i) => s + i.montant_ttc, 0);
+    const encours   = invs.filter(i => ['envoyee','retard'].includes(i.statut)).reduce((s,i) => s + i.montant_ttc, 0);
+    const retard    = invs.filter(i => i.statut === 'retard').reduce((s,i) => s + i.montant_ttc, 0);
+    const retardCount = invs.filter(i => i.statut === 'retard').length;
+    const payees    = invs.filter(i => i.statut === 'payee').reduce((s,i) => s + i.montant_ttc, 0);
+    const total     = invs.reduce((s,i) => s + i.montant_ttc, 0);
+    const taux      = total > 0 ? Math.round(payees / total * 100) : 0;
 
-  res.json({ caMonth, encours, retard, retardCount, tauxRecouvrement: taux, totalInvoices: invs.length });
+    res.json({ caMonth, encours, retard, retardCount, tauxRecouvrement: taux, totalInvoices: invs.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/me/change-password — change le mot de passe
-router.post('/change-password', auth, (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword)
-    return res.status(400).json({ error: 'Les deux mots de passe sont requis' });
-  if (newPassword.length < 6)
-    return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
+router.post('/change-password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ error: 'Les deux mots de passe sont requis' });
+    if (newPassword.length < 6)
+      return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-  const ok = bcrypt.compareSync(currentPassword, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+    const ok = bcrypt.compareSync(currentPassword, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
 
-  const newHash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
-  res.json({ ok: true, message: 'Mot de passe mis à jour avec succès' });
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.user.id]);
+    res.json({ ok: true, message: 'Mot de passe mis à jour avec succès' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/me — supprime le compte et toutes les données
-router.delete('/', auth, (req, res) => {
-  db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
-  res.json({ ok: true, message: 'Compte supprimé' });
+router.delete('/', auth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ ok: true, message: 'Compte supprimé' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/me/test-email — vérifie la connexion SMTP et envoie un email de test
 router.post('/test-email', auth, async (req, res) => {
-  const { sendMail, testConnection } = require('../services/mailer');
-  const conn = await testConnection();
-  if (!conn.ok) return res.status(400).json({ error: conn.message });
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   try {
+    const { sendMail, testConnection } = require('../services/mailer');
+    const conn = await testConnection();
+    if (!conn.ok) return res.status(400).json({ error: conn.message });
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     await sendMail({
       to: user.email,
       subject: '✅ Test FacturePilot AI — configuration email OK',
