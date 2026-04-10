@@ -173,6 +173,13 @@ async function initDB() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stripe_events (
+      event_id    TEXT PRIMARY KEY,
+      processed_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   await pool.query('CREATE INDEX IF NOT EXISTS idx_clients_user  ON clients(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_relances_inv  ON relances(invoice_id)');

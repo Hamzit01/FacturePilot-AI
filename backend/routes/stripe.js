@@ -26,6 +26,15 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
+  // Idempotency : ignorer les events déjà traités
+  try {
+    await db.query('INSERT INTO stripe_events (event_id) VALUES ($1)', [event.id]);
+  } catch(dupErr) {
+    // Clé dupliquée = event déjà traité
+    console.log('[Stripe] Event déjà traité, ignoré :', event.id);
+    return res.json({ received: true });
+  }
+
   // ── Paiement réussi ──────────────────────────────────────────────────────────
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;

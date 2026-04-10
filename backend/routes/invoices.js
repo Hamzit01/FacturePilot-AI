@@ -201,6 +201,15 @@ router.post('/:id/send-email', auth, async (req, res) => {
     const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     const { sendMail } = require('../services/mailer');
 
+    // Générer le PDF
+    const { generateInvoicePDF } = require('../services/pdf');
+    let pdfBuffer = null;
+    try {
+      pdfBuffer = await generateInvoicePDF(inv, user);
+    } catch(pdfErr) {
+      console.error('[PDF]', pdfErr.message);
+    }
+
     const montantHT  = Number(inv.montant_ht).toLocaleString('fr-FR', { minimumFractionDigits:2 });
     const montantTTC = Number(inv.montant_ttc).toLocaleString('fr-FR', { minimumFractionDigits:2 });
     const dateEch    = new Date(inv.date_echeance).toLocaleDateString('fr-FR');
@@ -236,6 +245,11 @@ router.post('/:id/send-email', auth, async (req, res) => {
         </div>
       `,
       text: `Facture ${inv.numero} — ${user.entreprise}\n\nMontant TTC : ${montantTTC} €\nÀ régler avant le ${dateEch}\n${user.iban ? `Virement IBAN : ${user.iban}` : ''}`,
+      attachments: pdfBuffer ? [{
+        filename: `${inv.numero}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      }] : [],
     });
 
     // Passer la facture en "envoyée" si c'était un brouillon

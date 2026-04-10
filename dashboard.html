@@ -35,6 +35,12 @@
 .ai-chip svg{width:12px;height:12px;fill:var(--orange)}
 @media(max-width:1100px){.two-col{grid-template-columns:1fr}}
 </style>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1B3A4B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FacturePilot AI">
 </head>
 <body>
 <div class="app-layout">
@@ -69,7 +75,6 @@
           <div class="alert-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
           <div>Réforme facturation électronique : <strong id="days-left">--</strong> jours avant l'obligation de réception — 1er septembre 2026. <strong>Vos factures Factur-X sont déjà conformes ✓</strong></div>
         </div>
-        <a href="conformite.html" class="alert-link">Voir la conformité →</a>
       </div>
       <div class="kpi-grid" id="kpi-grid"></div>
       <div class="two-col">

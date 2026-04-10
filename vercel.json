@@ -22,7 +22,9 @@
           "confidentialite.html",
           "guide-utilisateur.html",
           "assets/app.css",
-          "assets/app.js"
+          "assets/app.js",
+          "manifest.json",
+          "sw.js"
         ]
       }
     }
