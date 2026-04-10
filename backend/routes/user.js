@@ -32,11 +32,28 @@ router.get('/', auth, async (req, res) => {
 router.put('/', auth, async (req, res) => {
   try {
     const { prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo } = req.body;
+    // Fetch current values as fallback so undefined fields don't NULL-out existing data
+    const current = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0] || {};
+    const safeIban = (iban !== undefined) ? encrypt(iban) : current.iban;
+    const safeBic  = (bic  !== undefined) ? encrypt(bic)  : current.bic;
     await db.query(`
       UPDATE users SET prenom=$1, nom=$2, entreprise=$3, siren=$4, tva_num=$5,
         adresse=$6, tel=$7, iban=$8, bic=$9, couleur_facture=$10, logo=$11
       WHERE id=$12
-    `, [prenom, nom, entreprise, siren, tva, adresse, tel, encrypt(iban), encrypt(bic), couleurFacture, logo, req.user.id]);
+    `, [
+      prenom      ?? current.prenom       ?? '',
+      nom         ?? current.nom          ?? '',
+      entreprise  ?? current.entreprise   ?? '',
+      siren       ?? current.siren        ?? '',
+      tva         ?? current.tva_num      ?? '',
+      adresse     ?? current.adresse      ?? '',
+      tel         ?? current.tel          ?? '',
+      safeIban,
+      safeBic,
+      couleurFacture ?? current.couleur_facture ?? '#1B3A4B',
+      logo !== undefined ? logo : current.logo,
+      req.user.id,
+    ]);
     const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     res.json(sanitize(user));
   } catch (err) {

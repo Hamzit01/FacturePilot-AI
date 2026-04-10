@@ -53,7 +53,7 @@
     <div class="topbar">
       <div class="topbar-left"><h2>Paramètres</h2><div class="breadcrumb">Configuration de votre compte FacturePilot AI</div></div>
       <div class="topbar-right">
-        <button class="btn btn-primary" onclick="saveAll()">
+        <button class="btn btn-primary" id="btn-save-all" onclick="saveAll()">
           <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>Enregistrer tout
         </button>
       </div>
@@ -446,25 +446,25 @@
 <script src="assets/app.js"></script>
 <script>
 FP.renderSidebar('settings');
-const user = FP.getUser();
 
-// Load user data
-function loadData() {
-  document.getElementById('s-prenom').value = user.prenom||'';
-  document.getElementById('s-nom').value = user.nom||'';
-  document.getElementById('s-entreprise').value = user.entreprise||'';
-  document.getElementById('s-siren').value = user.siren||'';
-  document.getElementById('s-tva').value = user.tva||'';
-  document.getElementById('s-adresse').value = user.adresse||'';
-  document.getElementById('s-email').value = user.email||'';
-  document.getElementById('s-tel').value = user.tel||'';
-  document.getElementById('s-iban').value = user.iban||'';
-  document.getElementById('s-bic').value = user.bic||'';
-  document.getElementById('avatar-name').textContent = `${user.prenom||''} ${user.nom||''}`;
-  document.getElementById('preview-company').textContent = user.entreprise||'Mon entreprise';
-  document.getElementById('preview-addr').textContent = user.adresse||'Adresse';
+// ─── Load user data into form fields ─────────────────────────────────────────
+function loadData(u) {
+  u = u || FP.getUser();
+  document.getElementById('s-prenom').value = u.prenom||'';
+  document.getElementById('s-nom').value = u.nom||'';
+  document.getElementById('s-entreprise').value = u.entreprise||'';
+  document.getElementById('s-siren').value = u.siren||'';
+  document.getElementById('s-tva').value = u.tva||'';
+  document.getElementById('s-adresse').value = u.adresse||'';
+  document.getElementById('s-email').value = u.email||'';
+  document.getElementById('s-tel').value = u.tel||'';
+  document.getElementById('s-iban').value = u.iban||'';
+  document.getElementById('s-bic').value = u.bic||'';
+  document.getElementById('avatar-name').textContent = `${u.prenom||''} ${u.nom||''}`.trim() || '—';
+  document.getElementById('preview-company').textContent = u.entreprise||'Mon entreprise';
+  document.getElementById('preview-addr').textContent = u.adresse||'Adresse';
   // Color
-  const col = user.couleurFacture||'#1B3A4B';
+  const col = u.couleurFacture||'#1B3A4B';
   document.querySelectorAll('.color-swatch').forEach(s=>{
     s.classList.toggle('selected', s.dataset.color===col);
   });
@@ -477,7 +477,23 @@ function loadData() {
     if (el) el.checked = id in notifs ? notifs[id] : def;
   });
 }
+
+// Initial render from cache (fast), then refresh from API
 loadData();
+(async () => {
+  try {
+    const token = localStorage.getItem('fp_token');
+    if (!token) return;
+    const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const fresh = await res.json();
+    localStorage.setItem('fp_user', JSON.stringify(fresh));
+    loadData(fresh);
+    if (fresh.logo) applyLogoPreview(fresh.logo);
+    renderPlanPanel();
+    calcProfileScore();
+  } catch(e) { /* réseau down, on garde le cache */ }
+})();
 
 // ─── Plan panel — config ──────────────────────────────────────────────────────
 const PLANS = [
@@ -687,38 +703,77 @@ function uploadLogo(input) {
   reader.readAsDataURL(input.files[0]);
 }
 
-function saveAll() {
-  const color = document.querySelector('.color-swatch.selected')?.dataset.color||'#1B3A4B';
-  FP.saveUser({
-    prenom: document.getElementById('s-prenom').value,
-    nom: document.getElementById('s-nom').value,
-    entreprise: document.getElementById('s-entreprise').value,
-    siren: document.getElementById('s-siren').value,
-    tva: document.getElementById('s-tva').value,
-    adresse: document.getElementById('s-adresse').value,
-    email: document.getElementById('s-email').value,
-    tel: document.getElementById('s-tel').value,
-    iban: document.getElementById('s-iban').value,
-    bic: document.getElementById('s-bic').value,
+async function saveAll() {
+  const color   = document.querySelector('.color-swatch.selected')?.dataset.color||'#1B3A4B';
+  const saveBtn = document.getElementById('btn-save-all');
+  const origHTML = saveBtn ? saveBtn.innerHTML : '';
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Enregistrement…'; }
+
+  const data = {
+    prenom:        document.getElementById('s-prenom').value.trim(),
+    nom:           document.getElementById('s-nom').value.trim(),
+    entreprise:    document.getElementById('s-entreprise').value.trim(),
+    siren:         document.getElementById('s-siren').value.trim(),
+    tva:           document.getElementById('s-tva').value.trim(),
+    adresse:       document.getElementById('s-adresse').value.trim(),
+    email:         document.getElementById('s-email').value.trim(),
+    tel:           document.getElementById('s-tel').value.trim(),
+    iban:          document.getElementById('s-iban').value.trim(),
+    bic:           document.getElementById('s-bic').value.trim(),
     couleurFacture: color,
-  });
-  // Sauvegarder les toggles notifications dans localStorage
-  const notifIds = ['n-auto','n-manual','n-sms','n-paid','n-late','n-weekly','n-conform'];
-  const notifs = {};
-  notifIds.forEach(id => { const el = document.getElementById(id); if (el) notifs[id] = el.checked; });
-  localStorage.setItem('fp_notifications', JSON.stringify(notifs));
-  FP.toast('Paramètres enregistrés avec succès ✓');
-  document.getElementById('preview-company').textContent = document.getElementById('s-entreprise').value;
-  document.getElementById('avatar-name').textContent = `${document.getElementById('s-prenom').value} ${document.getElementById('s-nom').value}`;
+    logo:          FP.getUser().logo || null,  // preserve existing logo
+  };
+
+  try {
+    const token = localStorage.getItem('fp_token');
+    const res = await fetch('/api/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Erreur serveur');
+
+    // Update localStorage with server response
+    localStorage.setItem('fp_user', JSON.stringify(result));
+
+    // Save notifications
+    const notifIds = ['n-auto','n-manual','n-sms','n-paid','n-late','n-weekly','n-conform'];
+    const notifs = {};
+    notifIds.forEach(id => { const el = document.getElementById(id); if (el) notifs[id] = el.checked; });
+    localStorage.setItem('fp_notifications', JSON.stringify(notifs));
+
+    // Update live preview
+    document.getElementById('preview-company').textContent = result.entreprise || 'Mon entreprise';
+    document.getElementById('avatar-name').textContent = `${result.prenom||''} ${result.nom||''}`.trim();
+    calcProfileScore();
+    FP.toast('Paramètres enregistrés ✓');
+  } catch(err) {
+    FP.toast(err.message || 'Erreur lors de la sauvegarde', 'error');
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origHTML; }
+  }
 }
 
-function exportData() {
-  const data = { user: FP.getUser(), clients: FP.getClients(), invoices: FP.getInvoices() };
-  const a = document.createElement('a');
-  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
-  a.download = 'facturepilot-export.json';
-  a.click();
-  FP.toast('Données exportées !');
+async function exportData() {
+  FP.toast('Préparation de l\'export…', 'info');
+  try {
+    const token = localStorage.getItem('fp_token');
+    const h = { headers: { Authorization: `Bearer ${token}` } };
+    const [me, clients, invoices] = await Promise.all([
+      fetch('/api/me', h).then(r => r.json()),
+      fetch('/api/clients', h).then(r => r.json()),
+      fetch('/api/invoices', h).then(r => r.json()),
+    ]);
+    const payload = { user: me, clients, invoices, exportedAt: new Date().toISOString() };
+    const a = document.createElement('a');
+    a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
+    a.download = `facturepilot-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    FP.toast('Données exportées ✓');
+  } catch(err) {
+    FP.toast('Erreur export : ' + err.message, 'error');
+  }
 }
 
 async function testEmail() {

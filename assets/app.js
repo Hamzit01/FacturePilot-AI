@@ -217,11 +217,15 @@ const FP = (() => {
   };
   const getUser = () => get('fp_user', DEFAULT_USER);
   const saveUser = (data) => {
-    set('fp_user', { ...getUser(), ...data });
+    const merged = { ...getUser(), ...data };
+    set('fp_user', merged);
     if (localStorage.getItem('fp_token')) {
-      apiFetch('/api/me', { method: 'PUT', body: JSON.stringify(data) })
-        .catch(err => toast(err.message, 'error'));
+      return apiFetch('/api/me', { method: 'PUT', body: JSON.stringify(merged) })
+        .then(r => r.json())
+        .then(updated => { set('fp_user', { ...merged, ...updated }); return updated; })
+        .catch(err => { toast(err.message, 'error'); throw err; });
     }
+    return Promise.resolve(merged);
   };
 
   // ─── KPI CALCULATIONS ─────────────────────────────────────────────────────────
@@ -473,6 +477,8 @@ const FP = (() => {
     getInvoices, saveInvoices, getInvoice, addInvoice, updateInvoice, deleteInvoice, addRelance,
     // User
     getUser, saveUser,
+    // API helper — returns parsed JSON, throws on error
+    api: async (path, opts) => apiFetch(path, opts).then(r => r.json()),
     // KPIs & utils
     getKPIs, nextInvoiceNum,
     money, dateStr, daysLate, daysUntil,
