@@ -10,7 +10,12 @@ router.post('/relances', async (req, res) => {
     || req.headers['x-cron-secret']
     || req.query.secret;
 
-  if (process.env.CRON_SECRET && providedSecret !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error('[CRON] CRON_SECRET non configuré — endpoint désactivé par sécurité');
+    return res.status(503).json({ error: 'Cron non configuré' });
+  }
+  if (providedSecret !== cronSecret) {
     return res.status(401).json({ error: 'Non autorisé' });
   }
 

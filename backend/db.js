@@ -224,6 +224,25 @@ async function initDB() {
   // Index unique sur (user_id, numero) pour empêcher les doublons de numéro de facture
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_numero ON invoices(user_id, numero)');
 
+  // Table password_resets (persistent sur PostgreSQL — résout le problème in-memory Vercel)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id         SERIAL PRIMARY KEY,
+      email      TEXT NOT NULL,
+      code       TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used       BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_pwd_reset_email ON password_resets(email, expires_at DESC)');
+  // Nettoyage automatique des tokens expirés (idempotent)
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION cleanup_expired_resets() RETURNS void AS $$
+    BEGIN DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL '1 hour'; END;
+    $$ LANGUAGE plpgsql
+  `).catch(() => {});
+
   // Seed si la table users est vide
   const { rows } = await pool.query('SELECT COUNT(*) as n FROM users');
   if (parseInt(rows[0].n, 10) === 0) {

@@ -98,65 +98,86 @@ const sanitize = (u) => ({
 });
 
 // ─── Mot de passe oublié ────────────────────────────────────────────────────
-// Stockage en mémoire : { email → { code, expires } }
-const resetTokens = new Map();
 
 // POST /api/auth/forgot-password
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requis' });
+  const key = email.toLowerCase().trim();
 
-  // On répond toujours avec succès pour ne pas divulguer les emails existants
-  const user = (await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()])).rows[0];
-  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 chiffres
-  const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
+  // Toujours répondre 200 pour ne pas révéler si l'email existe
+  res.json({ ok: true, message: 'Si ce compte existe, un code de réinitialisation a été envoyé.' });
 
-  if (user) {
-    resetTokens.set(email.toLowerCase().trim(), { code, expires });
-    // Envoi email si SMTP configuré
+  try {
+    const { rows: [user] } = await db.query('SELECT id, prenom FROM users WHERE email = $1', [key]);
+    if (!user) return; // Silencieux — ne pas révéler l'existence du compte
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Invalider les anciens tokens pour cet email
+    await db.query('UPDATE password_resets SET used=TRUE WHERE email=$1 AND used=FALSE', [key]);
+    // Insérer le nouveau token
+    await db.query(
+      'INSERT INTO password_resets (email, code, expires_at) VALUES ($1, $2, $3)',
+      [key, code, expiresAt.toISOString()]
+    );
+
     const { sendMail } = require('../services/mailer');
-    await sendMail({
-      to: email,
-      subject: '🔐 Code de réinitialisation FacturePilot AI',
-      html: `<div style="font-family:sans-serif;max-width:420px">
-        <h2 style="color:#1B3A4B">FacturePilot AI</h2>
-        <p>Bonjour <strong>${user.prenom}</strong>,</p>
-        <p>Votre code de réinitialisation est :</p>
-        <div style="font-size:2rem;font-weight:800;letter-spacing:.3em;color:#1B3A4B;background:#F4F7FA;padding:16px 24px;border-radius:10px;display:inline-block;margin:12px 0">${code}</div>
-        <p style="color:#6b7a8a;font-size:.85em">Ce code expire dans 15 minutes.<br/>Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+    sendMail({
+      to: key,
+      subject: '🔐 Code de réinitialisation — FacturePilot AI',
+      html: `<div style="font-family:sans-serif;max-width:480px">
+        <div style="background:#1B3A4B;padding:20px 24px;border-radius:10px 10px 0 0">
+          <h2 style="color:white;margin:0;font-size:1.1rem">FacturePilot AI</h2>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 10px 10px">
+          <p>Bonjour${user.prenom ? ' ' + user.prenom : ''},</p>
+          <p>Voici votre code de réinitialisation (valable <strong>15 minutes</strong>) :</p>
+          <div style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#1B3A4B;text-align:center;padding:20px;background:#f4f7fa;border-radius:8px;margin:20px 0">${code}</div>
+          <p style="color:#6b7280;font-size:.85rem">Si vous n'avez pas demandé de réinitialisation, ignorez cet email.</p>
+        </div>
       </div>`,
-    }).catch(err => console.log(`[Reset code pour ${email}] : ${code}`, err.message));
-  } else {
-    // Email inexistant — on log le code en console pour le mode démo
-    console.log(`[Reset demandé pour email inconnu : ${email}]`);
+    }).catch(err => console.error('[Reset email]', err.message));
+  } catch(err) {
+    console.error('[forgot-password]', err.message);
   }
-
-  res.json({ message: `Si cet email est associé à un compte, un code de vérification a été envoyé. (Mode démo : code = ${user ? code : 'N/A'})` });
 });
 
 // POST /api/auth/reset-password
 router.post('/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword)
+    return res.status(400).json({ error: 'Email, code et nouveau mot de passe requis' });
+  if (newPassword.length < 8)
+    return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères' });
+
+  const key = email.toLowerCase().trim();
   try {
-    const { email, code, newPassword } = req.body;
-    if (!email || !code || !newPassword) return res.status(400).json({ error: 'Champs requis manquants' });
-    if (newPassword.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
+    const { rows: [entry] } = await db.query(
+      'SELECT * FROM password_resets WHERE email=$1 AND code=$2 AND used=FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+      [key, code]
+    );
 
-    const key   = email.toLowerCase().trim();
-    const entry = resetTokens.get(key);
-    if (!entry) return res.status(400).json({ error: 'Aucun code de réinitialisation pour cet email' });
-    if (Date.now() > entry.expires) { resetTokens.delete(key); return res.status(400).json({ error: 'Code expiré, veuillez recommencer' }); }
-    if (entry.code !== code.trim()) return res.status(400).json({ error: 'Code incorrect' });
+    if (!entry) {
+      // Délai anti-timing-attack
+      await new Promise(r => setTimeout(r, 300));
+      return res.status(400).json({ error: 'Code invalide ou expiré. Veuillez recommencer.' });
+    }
 
-    const user = (await db.query('SELECT id FROM users WHERE email = $1', [key])).rows[0];
-    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    // Marquer comme utilisé AVANT le UPDATE (évite double-use en cas de retry)
+    await db.query('UPDATE password_resets SET used=TRUE WHERE id=$1', [entry.id]);
 
-    const hash = bcrypt.hashSync(newPassword, 10);
-    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
-    resetTokens.delete(key);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    const newHash = require('bcryptjs').hashSync(newPassword, 10);
+    await db.query('UPDATE users SET password_hash=$1 WHERE email=$2', [newHash, key]);
+
+    // Nettoyer les autres tokens de cet email
+    await db.query('DELETE FROM password_resets WHERE email=$1', [key]);
+
+    res.json({ ok: true, message: 'Mot de passe mis à jour avec succès.' });
+  } catch(err) {
+    console.error('[reset-password]', err.message);
+    res.status(500).json({ error: 'Erreur lors de la réinitialisation' });
   }
 });
 
