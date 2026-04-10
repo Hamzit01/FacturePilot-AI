@@ -278,15 +278,20 @@
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="plan-cards">
                 <!-- cards rendered by JS -->
               </div>
-              <div id="plan-renewal-notice" style="display:none;font-size:.82rem;color:var(--text-muted);margin-bottom:16px;padding:10px 14px;background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:8px"></div>
               <div class="section-divider">Historique de facturation</div>
               <table class="data-table">
                 <thead><tr><th>Date</th><th>Plan</th><th>Montant</th><th>Statut</th></tr></thead>
-                <tbody id="billing-history">
-                  <!-- rendered by JS -->
-                </tbody>
+                <tbody id="billing-history"></tbody>
               </table>
-              <div style="font-size:.78rem;color:var(--text-muted);margin-top:10px">Pour toute question sur votre abonnement : <a href="mailto:contact@facturepilot.ai" style="color:var(--orange)">contact@facturepilot.ai</a></div>
+              <div style="font-size:.78rem;color:var(--text-muted);margin-top:10px">Pour toute question : <a href="mailto:contact@facturepilot.ai" style="color:var(--orange)">contact@facturepilot.ai</a></div>
+            </div>
+          </div>
+
+          <!-- MODAL PLAN ─────────────────────────────────────────────────────── -->
+          <div id="plan-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:white;border-radius:18px;padding:32px;max-width:460px;width:92%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+              <button onclick="closePlanModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;cursor:pointer;font-size:1.3rem;color:var(--text-muted);line-height:1">✕</button>
+              <div id="plan-modal-body"></div>
             </div>
           </div>
 
@@ -463,88 +468,185 @@ function loadData() {
 }
 loadData();
 
-// ─── Plan panel — dynamic rendering ─────────────────────────────────────────
-(function renderPlanPanel() {
-  const planKey = (user.plan || 'essentiel').toLowerCase();
-  const plans = [
-    {
-      key: 'essentiel',
-      label: 'Essentiel',
-      price: 'Gratuit',
-      priceSub: '',
-      features: ['✓ 10 factures/mois', '✓ Factur-X', '✗ Relances IA', '✗ Multi-utilisateurs'],
-      upgradeLabel: 'Passer au Pro',
-      upgradeAction: "window.open('https://buy.stripe.com/test_00waER5tz8Jz2DTfo95Ne00','_blank')",
-    },
-    {
-      key: 'pro',
-      label: 'Pro',
-      price: '29 €',
-      priceSub: '/mois',
-      features: ['✓ 100 factures/mois', '✓ Relances IA email+SMS', '✓ 2 utilisateurs', '✓ Support prioritaire'],
-      upgradeLabel: 'Passer au Business',
-      upgradeAction: "window.open('https://buy.stripe.com/test_28E3cpe057Fvcet4Jv5Ne01','_blank')",
-    },
-    {
-      key: 'business',
-      label: 'Business',
-      price: '49 €',
-      priceSub: '/mois',
-      features: ['✓ Illimité', '✓ Scoring client', '✓ Mise en demeure auto', '✓ 5 utilisateurs'],
-      upgradeLabel: null,
-      upgradeAction: null,
-    },
-  ];
+// ─── Plan panel — config ──────────────────────────────────────────────────────
+const PLANS = [
+  {
+    key: 'essentiel', label: 'Essentiel', price: 'Gratuit', priceSub: '', stripeUrl: null,
+    features: ['✓ 10 factures/mois', '✓ Factur-X conforme', '✗ Relances IA', '✗ Multi-utilisateurs'],
+    color: 'var(--green)',
+  },
+  {
+    key: 'pro', label: 'Pro', price: '29 €', priceSub: '/mois',
+    stripeUrl: 'https://buy.stripe.com/test_00waER5tz8Jz2DTfo95Ne00',
+    features: ['✓ 100 factures/mois', '✓ Relances IA email + SMS', '✓ 2 utilisateurs', '✓ Support prioritaire'],
+    color: 'var(--orange)',
+  },
+  {
+    key: 'business', label: 'Business', price: '49 €', priceSub: '/mois',
+    stripeUrl: 'https://buy.stripe.com/test_28E3cpe057Fvcet4Jv5Ne01',
+    features: ['✓ Factures illimitées', '✓ Scoring client risque', '✓ Mise en demeure auto', '✓ 5 utilisateurs', '✓ Support téléphonique'],
+    color: 'var(--navy)',
+  },
+];
 
-  const planIndex = plans.findIndex(p => p.key === planKey);
-  const cardsEl = document.getElementById('plan-cards');
-  cardsEl.innerHTML = plans.map((p, i) => {
-    const isCurrent = i === planIndex;
-    const isUpgrade = i > planIndex;
+function renderPlanPanel() {
+  const planKey  = ((FP.getUser() || {}).plan || 'essentiel').toLowerCase();
+  const planIndex = PLANS.findIndex(p => p.key === planKey);
+  const cardsEl  = document.getElementById('plan-cards');
+  if (!cardsEl) return;
+
+  cardsEl.innerHTML = PLANS.map((p, i) => {
+    const isCurrent  = i === planIndex;
+    const isUpgrade  = i > planIndex;
     const isDowngrade = i < planIndex;
-    const headerHtml = isCurrent
-      ? `<div style="display:flex;justify-content:space-between;align-items:center"><div class="plan-name">${p.label}</div><span class="badge badge-paid">Actuel</span></div>`
-      : `<div class="plan-name">${p.label}</div>`;
+
+    const badge = isCurrent
+      ? `<span class="badge badge-paid" style="margin-left:8px">Actuel</span>` : '';
     const priceHtml = p.priceSub
-      ? `<div class="plan-price">${p.price}<span style="font-size:.9rem;font-weight:400;color:var(--text-muted)">${p.priceSub}</span></div>`
-      : `<div class="plan-price" style="font-size:1.2rem">${p.price}</div>`;
-    let btnHtml = '';
+      ? `<div class="plan-price" style="margin:8px 0">${p.price}<span style="font-size:.85rem;font-weight:400;color:var(--text-muted)">${p.priceSub}</span></div>`
+      : `<div class="plan-price" style="margin:8px 0;font-size:1.3rem;color:${p.color}">${p.price}</div>`;
+
+    let btn = '';
     if (isCurrent) {
-      btnHtml = `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" disabled>Plan actuel ✓</button>`;
-    } else if (isUpgrade && p.upgradeLabel) {
-      btnHtml = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:12px" onclick="${p.upgradeAction}">${p.upgradeLabel}</button>`;
+      btn = `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:14px;cursor:default" disabled>✓ Plan actuel</button>`;
+    } else if (isUpgrade) {
+      btn = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:14px" data-plan="${p.key}">⬆ Passer au ${p.label}</button>`;
     } else if (isDowngrade) {
-      btnHtml = `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" onclick="window.location.href='mailto:contact@facturepilot.ai?subject=Modification%20de%20forfait%20%E2%80%94%20FacturePilot%20AI'">Modifier le forfait</button>`;
+      btn = `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:14px" data-downgrade="${p.key}">⬇ Rétrograder vers ${p.label}</button>`;
     }
-    return `<div class="plan-card${isCurrent ? ' current' : ''}">${headerHtml}${priceHtml}<div class="plan-features">${p.features.map(f=>`<span>${f}</span>`).join('')}</div>${btnHtml}</div>`;
+
+    return `
+      <div class="plan-card${isCurrent ? ' current' : ''}" style="${isCurrent ? 'border-color:'+p.color+';background:rgba(0,0,0,.02)' : ''}">
+        <div style="display:flex;align-items:center;margin-bottom:4px">
+          <div class="plan-name">${p.label}</div>${badge}
+        </div>
+        ${priceHtml}
+        <div class="plan-features" style="gap:5px">
+          ${p.features.map(f => `<span style="font-size:.8rem">${f}</span>`).join('')}
+        </div>
+        ${btn}
+      </div>`;
   }).join('');
 
+  // Event listeners sur les boutons (pas d'onclick inline)
+  cardsEl.querySelectorAll('[data-plan]').forEach(btn => {
+    btn.addEventListener('click', () => openUpgradeModal(btn.dataset.plan));
+  });
+  cardsEl.querySelectorAll('[data-downgrade]').forEach(btn => {
+    btn.addEventListener('click', () => openDowngradeModal(btn.dataset.downgrade));
+  });
+
   // Sidebar badge
-  const plan = plans[planIndex] || plans[0];
+  const current = PLANS[planIndex] || PLANS[0];
   const labelEl = document.getElementById('sidebar-plan-label');
   const subEl   = document.getElementById('sidebar-plan-sub');
-  if (labelEl) labelEl.textContent = `⚡ Plan ${plan.label} actif`;
-  if (subEl) subEl.textContent = plan.key === 'essentiel' ? 'Gratuit · 10 factures/mois' : `${plan.price}${plan.priceSub} · Actif`;
+  if (labelEl) labelEl.textContent = `⚡ Plan ${current.label} actif`;
+  if (subEl)   subEl.textContent   = current.key === 'essentiel' ? 'Gratuit · 10 factures/mois' : `${current.price}${current.priceSub} · Actif`;
 
-  // Billing history — generate plausible rows based on plan
+  // Historique de facturation
   const tbody = document.getElementById('billing-history');
   if (tbody) {
-    if (planKey === 'essentiel') {
+    if (current.key === 'essentiel') {
       tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);font-size:.85rem;padding:20px">Aucune facture — plan gratuit</td></tr>`;
     } else {
-      const price = plan.price;
-      const planLabel = plan.label;
-      const rows = [];
       const now = new Date();
-      for (let m = 0; m < 3; m++) {
+      tbody.innerHTML = Array.from({ length: 3 }, (_, m) => {
         const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-        const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-        rows.push(`<tr><td>${dateStr}</td><td>${planLabel}</td><td>${price.replace(' €',',00 €')}</td><td><span class="badge badge-paid">Payé</span></td></tr>`);
-      }
-      tbody.innerHTML = rows.join('');
+        const ds = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        return `<tr><td>${ds}</td><td>${current.label}</td><td>${current.price.replace(' €', ',00 €')}</td><td><span class="badge badge-paid">Payé</span></td></tr>`;
+      }).join('');
     }
   }
-})();
+}
+renderPlanPanel();
+
+// ─── Modal upgrade ────────────────────────────────────────────────────────────
+function openUpgradeModal(planKey) {
+  const plan  = PLANS.find(p => p.key === planKey);
+  if (!plan) return;
+  const modal = document.getElementById('plan-modal');
+  const body  = document.getElementById('plan-modal-body');
+  body.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="width:52px;height:52px;border-radius:14px;background:rgba(212,133,59,.12);display:inline-flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:12px">⬆</div>
+      <h3 style="margin:0;font-size:1.2rem;color:var(--navy)">Passer au plan ${plan.label}</h3>
+      <div style="font-size:1.5rem;font-weight:800;color:var(--orange);margin:8px 0">${plan.price}<span style="font-size:.9rem;font-weight:400;color:var(--text-muted)">${plan.priceSub}</span></div>
+    </div>
+    <div style="background:var(--bg-light);border-radius:10px;padding:14px 18px;margin-bottom:20px">
+      <div style="font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:8px">Fonctionnalités incluses :</div>
+      ${plan.features.map(f => `<div style="font-size:.84rem;color:var(--text-dark);padding:3px 0">${f}</div>`).join('')}
+    </div>
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:18px;text-align:center">
+      Paiement sécurisé par Stripe · Résiliable à tout moment
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closePlanModal()">Annuler</button>
+      <button class="btn btn-primary" style="flex:2" id="stripe-btn">
+        Payer avec Stripe →
+      </button>
+    </div>
+    <div id="plan-verify-zone" style="display:none;margin-top:16px;padding:14px;background:rgba(212,133,59,.07);border:1px solid rgba(212,133,59,.2);border-radius:10px;text-align:center">
+      <div style="font-size:.85rem;color:var(--navy);margin-bottom:10px">✅ Paiement effectué ? Cliquez ci-dessous pour activer votre plan.</div>
+      <button class="btn btn-ghost btn-sm" id="verify-btn">🔄 Vérifier et activer mon plan</button>
+    </div>`;
+
+  document.getElementById('stripe-btn').addEventListener('click', () => {
+    window.open(plan.stripeUrl, '_blank');
+    document.getElementById('plan-verify-zone').style.display = 'block';
+    document.getElementById('stripe-btn').textContent = '↗ Page Stripe ouverte...';
+    document.getElementById('stripe-btn').disabled = true;
+  });
+
+  document.getElementById('verify-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('verify-btn');
+    btn.textContent = '⏳ Vérification...';
+    btn.disabled = true;
+    try {
+      const data = await FP.api('/api/me');
+      if (data && data.plan && data.plan !== 'essentiel') {
+        FP.saveUser(data);
+        closePlanModal();
+        renderPlanPanel();
+        FP.toast(`🎉 Plan ${data.plan.charAt(0).toUpperCase()+data.plan.slice(1)} activé !`, 'success');
+      } else {
+        btn.textContent = '🔄 Vérifier et activer mon plan';
+        btn.disabled = false;
+        FP.toast('Plan pas encore mis à jour — patientez quelques secondes et réessayez', 'warning');
+      }
+    } catch(e) {
+      btn.textContent = '🔄 Vérifier et activer mon plan';
+      btn.disabled = false;
+    }
+  });
+
+  modal.style.display = 'flex';
+}
+
+function openDowngradeModal(planKey) {
+  const plan  = PLANS.find(p => p.key === planKey);
+  if (!plan) return;
+  const modal = document.getElementById('plan-modal');
+  const body  = document.getElementById('plan-modal-body');
+  body.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2rem;margin-bottom:10px">⬇</div>
+      <h3 style="margin:0;font-size:1.1rem;color:var(--navy)">Rétrograder vers ${plan.label}</h3>
+    </div>
+    <p style="color:var(--text-muted);font-size:.9rem;text-align:center">
+      Pour modifier votre abonnement, contactez-nous directement — nous traitons votre demande sous 24h.
+    </p>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closePlanModal()">Annuler</button>
+      <a href="mailto:contact@facturepilot.ai?subject=Modification forfait → ${plan.label}&body=Bonjour, je souhaite passer au plan ${plan.label}." class="btn btn-primary" style="flex:2;text-align:center" onclick="closePlanModal()">
+        📧 Contacter l'équipe
+      </a>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+function closePlanModal() {
+  document.getElementById('plan-modal').style.display = 'none';
+}
 
 function showPanel(id, el) {
   document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'));
