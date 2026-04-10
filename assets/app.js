@@ -265,71 +265,29 @@ const FP = (() => {
     return `FA-${year}-${String(Math.max(0, ...nums) + 1).padStart(3,'0')}`;
   };
 
-  // ─── FACTUR-X XML GENERATION ─────────────────────────────────────────────────
+  // ─── FACTUR-X XML GENERATION (EN 16931 conforme) ────────────────────────────
   const generateFacturX = (inv) => {
-    const user = getUser();
+    const user   = getUser();
     const client = getClient(inv.clientId) || { nom: inv.clientNom, siret:'', adresse:'' };
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
-  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
-  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
-  <rsm:ExchangedDocumentContext>
-    <ram:GuidelineSpecifiedDocumentContextParameter>
-      <ram:ID>urn:factur-x.eu:1p0:en16931</ram:ID>
-    </ram:GuidelineSpecifiedDocumentContextParameter>
-  </rsm:ExchangedDocumentContext>
-  <rsm:ExchangedDocument>
-    <ram:ID>${inv.numero}</ram:ID>
-    <ram:TypeCode>380</ram:TypeCode>
-    <ram:IssueDateTime>
-      <udt:DateTimeString format="102">${(inv.dateEmission||'').replace(/-/g,'')}</udt:DateTimeString>
-    </ram:IssueDateTime>
-  </rsm:ExchangedDocument>
-  <rsm:SupplyChainTradeTransaction>
-    <ram:ApplicableHeaderTradeAgreement>
-      <ram:SellerTradeParty>
-        <ram:Name>${user.entreprise}</ram:Name>
-        <ram:SpecifiedTaxRegistration>
-          <ram:ID schemeID="VA">${user.tva||''}</ram:ID>
-        </ram:SpecifiedTaxRegistration>
-        <ram:PostalTradeAddress>
-          <ram:LineOne>${user.adresse||''}</ram:LineOne>
-          <ram:CountryID>FR</ram:CountryID>
-        </ram:PostalTradeAddress>
-      </ram:SellerTradeParty>
-      <ram:BuyerTradeParty>
-        <ram:Name>${client.nom}</ram:Name>
-        <ram:PostalTradeAddress>
-          <ram:LineOne>${client.adresse||''}</ram:LineOne>
-          <ram:CountryID>FR</ram:CountryID>
-        </ram:PostalTradeAddress>
-      </ram:BuyerTradeParty>
-    </ram:ApplicableHeaderTradeAgreement>
-    <ram:ApplicableHeaderTradeDelivery/>
-    <ram:ApplicableHeaderTradeSettlement>
-      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
-      <ram:SpecifiedTradePaymentTerms>
-        <ram:DueDateDateTime>
-          <udt:DateTimeString format="102">${(inv.dateEcheance||'').replace(/-/g,'')}</udt:DateTimeString>
-        </ram:DueDateDateTime>
-      </ram:SpecifiedTradePaymentTerms>
-      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-        <ram:LineTotalAmount>${Number(inv.montantHT).toFixed(2)}</ram:LineTotalAmount>
-        <ram:TaxTotalAmount currencyID="EUR">${(Number(inv.montantTTC)-Number(inv.montantHT)).toFixed(2)}</ram:TaxTotalAmount>
-        <ram:GrandTotalAmount>${Number(inv.montantTTC).toFixed(2)}</ram:GrandTotalAmount>
-        <ram:DuePayableAmount>${Number(inv.montantTTC).toFixed(2)}</ram:DuePayableAmount>
-      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-    </ram:ApplicableHeaderTradeSettlement>
-    ${(() => {
-      let rows;
-      try { rows = inv.lignes ? JSON.parse(inv.lignes) : null; } catch(e) { rows = null; }
-      if (!rows || !rows.length) rows = [{ description: inv.objet || '', qte: 1, prixHT: inv.montantHT }];
-      return rows.map((l, i) => `    <ram:IncludedSupplyChainTradeLineItem>
+    const ht     = Number(inv.montantHT  || 0);
+    const ttc    = Number(inv.montantTTC || 0);
+    const tvaRate = Number(inv.tva || 20);
+    const tvaAmt  = Number((ttc - ht).toFixed(2));
+    const dateIss = (inv.dateEmission  ||'').replace(/-/g,'');
+    const dateEch = (inv.dateEcheance  ||'').replace(/-/g,'');
+    const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // Lignes de détail
+    let lignes;
+    try { lignes = inv.lignes ? JSON.parse(inv.lignes) : null; } catch(e) { lignes = null; }
+    if (!lignes || !lignes.length) lignes = [{ description: inv.objet||'Prestation', qte:1, prixHT: ht }];
+
+    const lineItems = lignes.map((l, i) => `    <ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument>
         <ram:LineID>${i + 1}</ram:LineID>
       </ram:AssociatedDocumentLineDocument>
       <ram:SpecifiedTradeProduct>
-        <ram:Name>${l.description || inv.objet}</ram:Name>
+        <ram:Name>${esc(l.description || inv.objet)}</ram:Name>
       </ram:SpecifiedTradeProduct>
       <ram:SpecifiedLineTradeAgreement>
         <ram:NetPriceProductTradePrice>
@@ -340,12 +298,94 @@ const FP = (() => {
         <ram:BilledQuantity unitCode="C62">${Number(l.qte).toFixed(2)}</ram:BilledQuantity>
       </ram:SpecifiedLineTradeDelivery>
       <ram:SpecifiedLineTradeSettlement>
+        <ram:ApplicableTradeTax>
+          <ram:TypeCode>VAT</ram:TypeCode>
+          <ram:CategoryCode>S</ram:CategoryCode>
+          <ram:RateApplicablePercent>${tvaRate.toFixed(2)}</ram:RateApplicablePercent>
+        </ram:ApplicableTradeTax>
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
           <ram:LineTotalAmount>${(Number(l.prixHT) * Number(l.qte)).toFixed(2)}</ram:LineTotalAmount>
         </ram:SpecifiedTradeSettlementLineMonetarySummation>
       </ram:SpecifiedLineTradeSettlement>
     </ram:IncludedSupplyChainTradeLineItem>`).join('\n');
-    })()}
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+  <rsm:ExchangedDocumentContext>
+    <ram:GuidelineSpecifiedDocumentContextParameter>
+      <ram:ID>urn:factur-x.eu:1p0:en16931</ram:ID>
+    </ram:GuidelineSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+  <rsm:ExchangedDocument>
+    <ram:ID>${esc(inv.numero)}</ram:ID>
+    <ram:TypeCode>380</ram:TypeCode>
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">${dateIss}</udt:DateTimeString>
+    </ram:IssueDateTime>
+  </rsm:ExchangedDocument>
+  <rsm:SupplyChainTradeTransaction>
+    <ram:ApplicableHeaderTradeAgreement>
+      <ram:SellerTradeParty>
+        <ram:Name>${esc(user.entreprise)}</ram:Name>
+        <ram:SpecifiedLegalOrganization>
+          <ram:ID schemeID="0002">${esc(user.siren||'')}</ram:ID>
+        </ram:SpecifiedLegalOrganization>
+        <ram:SpecifiedTaxRegistration>
+          <ram:ID schemeID="VA">${esc(user.tva||'')}</ram:ID>
+        </ram:SpecifiedTaxRegistration>
+        <ram:PostalTradeAddress>
+          <ram:LineOne>${esc(user.adresse||'')}</ram:LineOne>
+          <ram:CountryID>FR</ram:CountryID>
+        </ram:PostalTradeAddress>
+      </ram:SellerTradeParty>
+      <ram:BuyerTradeParty>
+        <ram:Name>${esc(client.nom)}</ram:Name>
+        ${client.siret ? `<ram:SpecifiedLegalOrganization><ram:ID schemeID="0009">${esc(client.siret)}</ram:ID></ram:SpecifiedLegalOrganization>` : ''}
+        <ram:PostalTradeAddress>
+          <ram:LineOne>${esc(client.adresse||'')}</ram:LineOne>
+          <ram:CountryID>FR</ram:CountryID>
+        </ram:PostalTradeAddress>
+      </ram:BuyerTradeParty>
+    </ram:ApplicableHeaderTradeAgreement>
+    <ram:ApplicableHeaderTradeDelivery>
+      <ram:ActualDeliverySupplyChainEvent>
+        <ram:OccurrenceDateTime>
+          <udt:DateTimeString format="102">${dateIss}</udt:DateTimeString>
+        </ram:OccurrenceDateTime>
+      </ram:ActualDeliverySupplyChainEvent>
+    </ram:ApplicableHeaderTradeDelivery>
+    <ram:ApplicableHeaderTradeSettlement>
+      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+      ${user.iban ? `<ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>30</ram:TypeCode>
+        <ram:PayeePartyCreditorFinancialAccount>
+          <ram:IBANID>${esc(user.iban.replace(/\s/g,''))}</ram:IBANID>
+        </ram:PayeePartyCreditorFinancialAccount>
+      </ram:SpecifiedTradeSettlementPaymentMeans>` : ''}
+      <ram:ApplicableTradeTax>
+        <ram:CalculatedAmount>${tvaAmt.toFixed(2)}</ram:CalculatedAmount>
+        <ram:TypeCode>VAT</ram:TypeCode>
+        <ram:BasisAmount>${ht.toFixed(2)}</ram:BasisAmount>
+        <ram:CategoryCode>S</ram:CategoryCode>
+        <ram:RateApplicablePercent>${tvaRate.toFixed(2)}</ram:RateApplicablePercent>
+      </ram:ApplicableTradeTax>
+      <ram:SpecifiedTradePaymentTerms>
+        <ram:DueDateDateTime>
+          <udt:DateTimeString format="102">${dateEch}</udt:DateTimeString>
+        </ram:DueDateDateTime>
+      </ram:SpecifiedTradePaymentTerms>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:LineTotalAmount>${ht.toFixed(2)}</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount>${ht.toFixed(2)}</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="EUR">${tvaAmt.toFixed(2)}</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>${ttc.toFixed(2)}</ram:GrandTotalAmount>
+        <ram:TotalPrepaidAmount>0.00</ram:TotalPrepaidAmount>
+        <ram:DuePayableAmount>${ttc.toFixed(2)}</ram:DuePayableAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+${lineItems}
   </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>`;
   };

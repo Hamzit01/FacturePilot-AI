@@ -177,9 +177,11 @@ router.get('/:id/pixel.gif', async (req, res) => {
   const GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
   res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store', 'Content-Length': GIF.length });
   res.end(GIF);
-  // Log en arrière-plan (non bloquant)
-  const ip = req.headers['x-forwarded-for'] || req.ip || '';
-  db.query('INSERT INTO invoice_views (invoice_id, ip) VALUES ($1, $2)', [req.params.id, ip])
+  // Valider que l'id est un entier avant tout accès DB
+  const invoiceId = parseInt(req.params.id);
+  if (!Number.isInteger(invoiceId) || invoiceId <= 0) return;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
+  db.query('INSERT INTO invoice_views (invoice_id, ip) VALUES ($1, $2)', [invoiceId, ip])
     .catch(() => {});
 });
 
@@ -274,8 +276,25 @@ router.patch('/:id/statut', auth, async (req, res) => {
     const { statut } = req.body;
     const valid = ['brouillon','envoyee','retard','payee'];
     if (!valid.includes(statut)) return res.status(400).json({ error: 'Statut invalide' });
-    const existing = (await db.query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
+    const existing = (await db.query('SELECT id, statut FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Facture introuvable' });
+
+    // ── Règles d'immuabilité comptable ───────────────────────────────────────
+    // Une facture payée ne peut jamais être rétrogradée (CGI art. 289)
+    if (existing.statut === 'payee') {
+      return res.status(409).json({
+        error: 'Une facture payée est immuable. Pour la corriger, émettez un avoir.',
+        statut: existing.statut,
+      });
+    }
+    // Une facture envoyée ou en retard ne peut repasser en brouillon qu'explicitement
+    if (['envoyee','retard'].includes(existing.statut) && statut === 'brouillon') {
+      return res.status(409).json({
+        error: 'Une facture émise ne peut pas repasser en brouillon. Créez un avoir si une correction est nécessaire.',
+        statut: existing.statut,
+      });
+    }
+
     await db.query('UPDATE invoices SET statut=$1 WHERE id=$2 AND user_id=$3', [statut, req.params.id, req.user.id]);
 
     // Log si passage en payée

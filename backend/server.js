@@ -117,11 +117,18 @@ app.get(/^(?!\/api).*/, (_req, res) => {
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   const status = err.status || err.statusCode || 500;
-  // Don't leak stack traces in production
-  const message = isProd && status === 500
-    ? 'Une erreur interne est survenue'
-    : err.message || 'Erreur serveur';
   if (status >= 500) console.error('[ERROR]', err.stack || err.message);
+  // En production : ne jamais exposer les internals DB (noms de tables, contraintes, colonnes)
+  let message = err.message || 'Erreur serveur';
+  if (isProd && status >= 500) {
+    message = 'Une erreur interne est survenue. Notre équipe a été notifiée.';
+  } else if (isProd) {
+    // Masquer les détails PostgreSQL (ex: "duplicate key value violates unique constraint...")
+    const pgPatterns = [/column\s+"[\w_]+"/i, /relation\s+"[\w_]+"/i, /constraint\s+"[\w_]+"/i, /syntax error at/i, /ERROR:\s+/i];
+    if (pgPatterns.some(p => p.test(message))) {
+      message = 'Opération invalide. Veuillez vérifier vos données.';
+    }
+  }
   res.status(status).json({ error: message });
 });
 

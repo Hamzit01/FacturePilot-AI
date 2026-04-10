@@ -503,30 +503,44 @@ async function sendInvoiceByEmail() {
     FP.toast('Ce client n\'a pas d\'adresse email renseignée', 'error');
     return;
   }
-  const btn = document.getElementById('btn-send-email');
-  btn.disabled = true; btn.textContent = 'Envoi…';
-  try {
-    const res = await fetch(`/api/invoices/${inv.id}/send-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('fp_token')}`,
-      },
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    FP.toast(`Facture ${inv.numero} envoyée à ${clientEmail} ✓`);
-    // Marquer comme envoyée si brouillon
-    if (inv.statut === 'brouillon') {
-      FP.updateInvoice(inv.id, { statut: 'envoyee' });
-      renderTable();
+
+  // ── Confirmation avant envoi définitif ─────────────────────────────────────
+  const montant = FP.money(inv.montantTTC);
+  const confirmMsg = `Envoyer la facture <strong>${inv.numero}</strong> (${montant}) à <strong>${clientEmail}</strong> ?`
+    + `<br/><span style="font-size:.82rem;color:var(--text-muted);margin-top:4px;display:block">Cette action est irréversible — la facture sera verrouillée.</span>`;
+
+  await new Promise((resolve) => {
+    FP.confirm(confirmMsg, () => resolve(true));
+    // Si l'utilisateur annule, la Promise reste en attente — on retourne
+    const overlay = document.getElementById('fp-confirm-overlay');
+    const cancelBtn = document.getElementById('fp-confirm-cancel');
+    if (cancelBtn) {
+      const origClick = cancelBtn.onclick;
+      cancelBtn.onclick = () => { if (overlay) overlay.style.display='none'; resolve(false); };
     }
-  } catch(err) {
-    FP.toast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Envoyer';
-  }
+  }).then(async (confirmed) => {
+    if (!confirmed) return;
+    const btn = document.getElementById('btn-send-email');
+    if (btn) { btn.disabled = true; btn.textContent = '📤 Envoi en cours…'; }
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('fp_token')}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // After-send UX : message riche
+      FP.toast(`✅ Facture ${inv.numero} envoyée à ${clientEmail} — suivi automatique activé`, 'success');
+      if (inv.statut === 'brouillon') {
+        FP.updateInvoice(inv.id, { statut: 'envoyee' });
+        renderTable();
+      }
+    } catch(err) {
+      FP.toast(err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="white" width="13" height="13"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Envoyer'; }
+    }
+  });
 }
 
 async function downloadPDF() {
