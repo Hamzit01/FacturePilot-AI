@@ -1,7 +1,10 @@
 'use strict';
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'facturepilot-secret-2026-change-in-prod';
+if (!process.env.JWT_SECRET) {
+  console.error('[AUTH] ERREUR CRITIQUE : JWT_SECRET non défini dans les variables d\'environnement !');
+}
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 module.exports = (req, res, next) => {
   const header = req.headers.authorization || '';

@@ -31,7 +31,14 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, prenom, nom, entreprise, siren } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-    if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 chars min)' });
+    // Validation email : doit contenir @ et avoir au moins 6 caractères
+    if (email.length < 6 || !email.includes('@') || !email.includes('.'))
+      return res.status(400).json({ error: 'Format email invalide' });
+    // Validation mot de passe : minimum 8 caractères
+    if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
+    // Validation SIREN si fourni : exactement 9 chiffres
+    if (siren && !/^\d{9}$/.test(siren.trim()))
+      return res.status(400).json({ error: 'SIREN invalide (9 chiffres requis)' });
 
     const existing = (await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()])).rows[0];
     if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
@@ -131,7 +138,7 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
     if (!email || !code || !newPassword) return res.status(400).json({ error: 'Champs requis manquants' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'Mot de passe trop court' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
 
     const key   = email.toLowerCase().trim();
     const entry = resetTokens.get(key);
@@ -158,7 +165,7 @@ router.post('/password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Champs requis' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'Nouveau mot de passe trop court (6 chars min)' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'Nouveau mot de passe trop court (8 caractères minimum)' });
     const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     const ok = bcrypt.compareSync(currentPassword, user.password_hash);

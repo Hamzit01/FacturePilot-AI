@@ -83,6 +83,12 @@ router.post('/', auth, async (req, res) => {
     const { clientId, clientNom, numero, objet, lignes, montantHT, tva, montantTTC, dateEmission, dateEcheance, statut, notes } = req.body;
     if (!montantHT || !dateEmission || !dateEcheance)
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
+    // Validation : montantHT doit être > 0
+    if (Number(montantHT) <= 0)
+      return res.status(400).json({ error: 'Le montant HT doit être supérieur à 0' });
+    // Validation : dateEcheance doit être >= dateEmission
+    if (new Date(dateEcheance) < new Date(dateEmission))
+      return res.status(400).json({ error: 'La date d\'échéance doit être postérieure ou égale à la date d\'émission' });
 
     // Auto-generate numero if missing
     let num = numero;
