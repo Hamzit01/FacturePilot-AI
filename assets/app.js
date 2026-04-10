@@ -465,6 +465,15 @@ const FP = (() => {
   const init = () => {
     if (!requireAuth()) return;
     sync(); // background sync — updates cache + sidebar when done
+    // Raccourci global Escape pour fermer les modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+          if (m.style.display === 'flex') m.style.display = 'none';
+          m.classList.remove('open');
+        });
+      }
+    });
   };
 
   // ─── EXPORT ──────────────────────────────────────────────────────────────────

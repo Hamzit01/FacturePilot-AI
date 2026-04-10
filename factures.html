@@ -196,6 +196,35 @@
 <script src="assets/app.js"></script>
 <script>
 FP.renderSidebar('factures');
+
+// Afficher l'usage du plan
+(async () => {
+  try {
+    const usage = await FP.api('/api/me/plan-usage');
+    if (usage.limit && usage.remaining !== null) {
+      const pct = Math.round((usage.used / usage.limit) * 100);
+      const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--orange)' : 'var(--green)';
+      const bar = document.createElement('div');
+      bar.style.cssText = 'margin-bottom:16px;padding:12px 16px;background:white;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:16px';
+      bar.innerHTML = `
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:.82rem;font-weight:700;color:var(--navy)">Factures ce mois</span>
+            <span style="font-size:.82rem;color:${color};font-weight:700">${usage.used} / ${usage.limit}</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;transition:width .4s"></div>
+          </div>
+        </div>
+        ${pct >= 80 ? `<a href="settings.html#plan" class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0">⬆ Passer Pro</a>` : ''}
+      `;
+      // Insérer avant la liste
+      const pageContent = document.querySelector('.page-content');
+      if (pageContent) pageContent.prepend(bar);
+    }
+  } catch(e) {}
+})();
+
 let currentFilter = 'all';
 let editingId = null;
 
@@ -240,7 +269,15 @@ function renderTable() {
         <button class="btn btn-danger btn-sm" onclick="delInv('${inv.id}')">🗑</button>
       </div></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="10"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg><h4>Aucune facture</h4><p>Créez votre première facture Factur-X</p><button class="btn btn-primary" onclick="FP.openModal('modal-invoice')">+ Nouvelle facture</button></div></td></tr>`;
+  }).join('') : `<tr><td colspan="10"><div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+  <div style="font-size:3rem;margin-bottom:16px">📄</div>
+  <div style="font-size:1.1rem;font-weight:700;color:var(--navy);margin-bottom:8px">Votre première facture en 30 secondes</div>
+  <div style="font-size:.88rem;margin-bottom:24px">Créez une facture professionnelle, envoyez-la par email et suivez son paiement en temps réel.</div>
+  <button class="btn btn-primary" onclick="openNew()">
+    <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    Créer ma première facture
+  </button>
+</div></td></tr>`;
 }
 
 function openNew() {
@@ -494,8 +531,29 @@ async function sendInvoiceByEmail() {
 
 async function downloadPDF() {
   const inv = FP.getInvoice(window._viewInvId);
-  const user = FP.getUser();
   if (!inv) return;
+  const btn = document.getElementById ? document.querySelector('[onclick="downloadPDF()"]') : null;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF…'; }
+  try {
+    // Utiliser le PDF serveur (données figées à l'envoi si facture émise)
+    const token = localStorage.getItem('fp_token');
+    const res = await fetch(`/api/invoices/${inv.id}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Erreur génération PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${inv.numero}.pdf`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    FP.toast(`${inv.numero}.pdf téléchargé ✓`);
+    return;
+  } catch(e) {
+    console.warn('[PDF serveur]', e.message, '— fallback jsPDF');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ PDF'; }
+  // Fallback jsPDF (client-side) si serveur indisponible
+  const user = FP.getUser();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const navy = [27, 58, 75]; const orange = [212, 133, 59]; const green = [26, 122, 61];
@@ -588,7 +646,8 @@ async function downloadPDF() {
   doc.text(`${user.entreprise || ''} — ${user.adresse || ''}`, 14, footerY + 22);
   // Save
   doc.save(`${inv.numero}.pdf`);
-  FP.toast(`${inv.numero}.pdf téléchargé !`);
+  FP.toast(`${inv.numero}.pdf téléchargé ✓`);
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ PDF'; }
 }
 
 function downloadFacturX() {
@@ -657,6 +716,18 @@ if (urlP.get('new')) {
   }, 100);
 }
 renderTable();
+
+// Raccourcis clavier
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n' && !e.shiftKey) {
+    e.preventDefault();
+    openNew(); // ou la fonction qui ouvre le modal de création
+  }
+  if (e.key === 'Escape') {
+    // Fermer tout modal ouvert
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  }
+});
 </script>
 </body>
 </html>

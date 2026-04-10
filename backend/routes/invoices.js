@@ -56,66 +56,79 @@ const fmtInv = (inv, relances = [], views = 0) => {
   };
 };
 
-// GET /api/invoices/export/fec — export FEC pour expert-comptable
+// GET /api/invoices/export/fec — export FEC DGFiP (partie double conforme)
 router.get('/export/fec', auth, async (req, res) => {
   try {
     const { rows: invoices } = await db.query(
-      "SELECT * FROM invoices WHERE user_id = $1 AND statut IN ('envoyee','payee','retard') ORDER BY date_emission",
+      `SELECT i.*, c.siret as client_siret
+       FROM invoices i LEFT JOIN clients c ON i.client_id = c.id
+       WHERE i.user_id = $1 AND i.statut IN ('envoyee','payee','retard')
+       ORDER BY i.date_emission, i.id`,
       [req.user.id]
     );
     const { rows: [user] } = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
 
-    // Format FEC : fichier texte tabulé, encodage UTF-8 avec BOM
     const sep = '\t';
-    const headers = ['JournalCode','JournalLib','EcritureNum','EcritureDate','CompteNum','CompteLib','CompAuxNum','CompAuxLib','PieceRef','PieceDate','EcritureLib','Debit','Credit','EcritureLet','DateLet','ValidDate','Montantdevise','Idevise'].join(sep);
+    const COLS = ['JournalCode','JournalLib','EcritureNum','EcritureDate','CompteNum','CompteLib',
+      'CompAuxNum','CompAuxLib','PieceRef','PieceDate','EcritureLib','Debit','Credit',
+      'EcritureLet','DateLet','ValidDate','Montantdevise','Idevise'];
 
-    const lines = [headers];
-    invoices.forEach((inv, idx) => {
-      const dateStr = inv.date_emission.replace(/-/g, '');
-      const num = String(idx + 1).padStart(6, '0');
-      const montantHT = Number(inv.montant_ht).toFixed(2).replace('.', ',');
-      const tvaAmt = (Number(inv.montant_ttc) - Number(inv.montant_ht)).toFixed(2).replace('.', ',');
+    const lines = [COLS.join(sep)];
+    const fmt   = (n) => Number(n).toFixed(2).replace('.', ',');
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    let vtN = 0, bqN = 0;
+    const vtNum = () => `VT${String(++vtN).padStart(6,'0')}`;
+    const bqNum = () => `BQ${String(++bqN).padStart(6,'0')}`;
+    const row   = (fields) => lines.push(fields.join(sep));
 
-      // Ligne client (débit)
-      lines.push([
-        'VT', 'Ventes', `VT${num}`, dateStr,
-        '411000', 'Clients', inv.client_nom.slice(0,17).replace(/\t/g,' '), inv.client_nom.replace(/\t/g,' '),
-        inv.numero, dateStr, (inv.objet || inv.numero).slice(0,99).replace(/\t/g,' '),
-        Number(inv.montant_ttc).toFixed(2).replace('.', ','), '0,00',
-        '', '', dateStr, '', ''
-      ].join(sep));
+    invoices.forEach((inv) => {
+      const dateStr    = String(inv.date_emission).replace(/-/g, '');
+      const eNum       = vtNum();
+      const montantHT  = fmt(inv.montant_ht);
+      const montantTTC = fmt(inv.montant_ttc);
+      const tvaAmt     = fmt(Number(inv.montant_ttc) - Number(inv.montant_ht));
+      const clientCode = `CLI${String(inv.client_id || 0).padStart(5,'0')}`;
+      const clientLib  = (inv.client_nom || 'Client').slice(0,40).replace(/\t/g,' ');
+      const pieceLib   = (inv.objet || inv.numero).slice(0,99).replace(/\t/g,' ');
 
-      // Ligne produit (crédit HT)
-      lines.push([
-        'VT', 'Ventes', `VT${num}`, dateStr,
-        '706000', 'Prestations de services', '', '',
-        inv.numero, dateStr, (inv.objet || inv.numero).slice(0,99).replace(/\t/g,' '),
-        '0,00', montantHT,
-        '', '', dateStr, '', ''
-      ].join(sep));
+      // ── Écriture ventes ───────────────────────────────────────────────────────
+      // Débit 411 Clients (créance = TTC)
+      row(['VT','Ventes', eNum, dateStr, '411000','Clients', clientCode, clientLib,
+           inv.numero, dateStr, pieceLib, montantTTC, '0,00', '','', today,'','']);
+      // Crédit 706 Prestations de services (HT)
+      row(['VT','Ventes', eNum, dateStr, '706000','Prestations de services', '','',
+           inv.numero, dateStr, pieceLib, '0,00', montantHT, '','', today,'','']);
+      // Crédit 445711 TVA collectée
+      if (Number(inv.tva) > 0) {
+        row(['VT','Ventes', eNum, dateStr, '445711',`TVA collectée ${inv.tva}%`, '','',
+             inv.numero, dateStr, `TVA ${inv.tva}%`, '0,00', tvaAmt, '','', today,'','']);
+      }
 
-      // Ligne TVA (crédit TVA)
-      if (inv.tva > 0) {
-        lines.push([
-          'VT', 'Ventes', `VT${num}`, dateStr,
-          '445710', 'TVA collectée', '', '',
-          inv.numero, dateStr, `TVA ${inv.tva}%`,
-          '0,00', tvaAmt,
-          '', '', dateStr, '', ''
-        ].join(sep));
+      // ── Écriture règlement (factures payées uniquement) ───────────────────────
+      if (inv.statut === 'payee') {
+        const bNum    = bqNum();
+        const payDate = dateStr;
+        const lettre  = inv.numero.replace(/[^A-Z0-9]/gi,'').slice(0,3).toUpperCase();
+        // Débit 512 Banque
+        row(['BQ','Banque', bNum, payDate, '512000','Banque', '','',
+             inv.numero, payDate, `Règlement ${inv.numero}`, montantTTC, '0,00',
+             lettre, payDate, today,'','']);
+        // Crédit 411 Clients (apurement créance)
+        row(['BQ','Banque', bNum, payDate, '411000','Clients', clientCode, clientLib,
+             inv.numero, payDate, `Règlement ${inv.numero}`, '0,00', montantTTC,
+             lettre, payDate, today,'','']);
       }
     });
 
-    const siren = (user.siren || 'SIREN').replace(/\s/g,'');
-    const year = new Date().getFullYear();
+    const siren    = (user.siren || 'SIREN').replace(/\s/g,'');
+    const year     = new Date().getFullYear();
     const filename = `${siren}FEC${year}1231.txt`;
-    const bom = Buffer.from('\uFEFF', 'utf8');
-    const content = Buffer.from(lines.join('\r\n'), 'utf8');
+    const bom      = Buffer.from('\uFEFF','utf8');
+    const content  = Buffer.from(lines.join('\r\n'),'utf8');
 
     res.set({
       'Content-Type': 'text/plain; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': bom.length + content.length,
     });
     res.end(Buffer.concat([bom, content]));
   } catch (err) {
@@ -330,11 +343,24 @@ router.post('/:id/send-email', auth, async (req, res) => {
     const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     const { sendMail } = require('../services/mailer');
 
-    // Générer le PDF
+    // Générer le PDF et archiver un snapshot des données au moment de l'envoi
     const { generateInvoicePDF } = require('../services/pdf');
     let pdfBuffer = null;
     try {
       pdfBuffer = await generateInvoicePDF(inv, user);
+      // Snapshot immuable : on fige les données émetteur+facture pour préserver l'historique
+      const snapshot = {
+        inv: { numero: inv.numero, objet: inv.objet, montant_ht: inv.montant_ht, tva: inv.tva,
+               montant_ttc: inv.montant_ttc, date_emission: inv.date_emission,
+               date_echeance: inv.date_echeance, client_nom: inv.client_nom, lignes: inv.lignes },
+        user: { prenom: user.prenom, nom: user.nom, entreprise: user.entreprise,
+                adresse: user.adresse, siren: user.siren, tva_num: user.tva_num,
+                iban: user.iban, tel: user.tel, email: user.email,
+                couleur_facture: user.couleur_facture },
+        sentAt: new Date().toISOString(),
+      };
+      db.query('UPDATE invoices SET invoice_snapshot=$1 WHERE id=$2', [JSON.stringify(snapshot), req.params.id])
+        .catch(() => {});
     } catch(pdfErr) {
       console.error('[PDF]', pdfErr.message);
     }
@@ -396,6 +422,45 @@ router.post('/:id/send-email', auth, async (req, res) => {
     res.json({ ok: true, message: `Facture envoyée à ${inv.client_email}` });
   } catch (err) {
     console.error('[MAIL facture]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/invoices/:id/pdf — télécharge le PDF (données figées si facture envoyée)
+router.get('/:id/pdf', auth, async (req, res) => {
+  try {
+    const inv = (await db.query(
+      'SELECT * FROM invoices WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.user.id]
+    )).rows[0];
+    if (!inv) return res.status(404).json({ error: 'Facture introuvable' });
+
+    const { generateInvoicePDF } = require('../services/pdf');
+    let pdfData, snapshotUser;
+
+    // Si un snapshot existe, utiliser les données figées à l'envoi (conformité légale)
+    if (inv.invoice_snapshot) {
+      try {
+        const snap = typeof inv.invoice_snapshot === 'string'
+          ? JSON.parse(inv.invoice_snapshot) : inv.invoice_snapshot;
+        pdfData     = { ...inv, ...snap.inv };
+        snapshotUser = snap.user;
+      } catch(e) { /* fallback live */ }
+    }
+
+    if (!snapshotUser) {
+      snapshotUser = (await db.query('SELECT * FROM users WHERE id=$1', [req.user.id])).rows[0];
+    }
+
+    const buf = await generateInvoicePDF(pdfData || inv, snapshotUser);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${inv.numero}.pdf"`,
+      'Cache-Control': inv.invoice_snapshot ? 'public, max-age=86400' : 'no-cache',
+    });
+    res.end(buf);
+  } catch(err) {
+    console.error('[PDF download]', err.message);
     res.status(500).json({ error: err.message });
   }
 });

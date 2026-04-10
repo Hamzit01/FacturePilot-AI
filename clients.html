@@ -242,7 +242,18 @@ function render() {
           <div class="risque-bar" style="background:${risqueColor};opacity:.3;width:${Math.min(100,tot/500)}%"></div>
         </div>`;
       }).join('') :
-      `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><h4>Aucun client</h4><p>Ajoutez votre premier client pour commencer à facturer</p><button class="btn btn-primary" onclick="openNew()">+ Ajouter un client</button></div>`;
+      `<div style="text-align:center;padding:60px 20px;color:var(--text-muted);grid-column:1/-1">
+  <div style="font-size:3rem;margin-bottom:16px">👥</div>
+  <div style="font-size:1.1rem;font-weight:700;color:var(--navy);margin-bottom:8px">Ajoutez votre premier client</div>
+  <div style="font-size:.88rem;margin-bottom:24px">Gérez vos clients, suivez les risques de paiement et importez votre base existante en CSV.</div>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="openNew()">
+      <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Ajouter un client
+    </button>
+    <button class="btn btn-ghost" onclick="openCSVImport()">📥 Importer CSV</button>
+  </div>
+</div>`;
   } else {
     document.getElementById('clients-tbody').innerHTML = clients.map(c=>{
       const enc = getClientEncours(c.id);

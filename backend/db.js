@@ -193,6 +193,11 @@ async function initDB() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_relances_inv  ON relances(invoice_id)');
 
+  // Migration : ajout colonne invoice_snapshot (snapshot JSON figé à l'envoi)
+  await pool.query(`
+    ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_snapshot JSONB DEFAULT NULL
+  `).catch(() => {});
+
   // Migration REAL → NUMERIC pour éviter les erreurs de virgule flottante sur les montants
   await pool.query(`
     ALTER TABLE invoices

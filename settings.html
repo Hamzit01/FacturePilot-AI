@@ -226,61 +226,41 @@
 
           <!-- NOTIFICATIONS -->
           <div class="settings-panel" id="panel-notifications">
-            <div class="card card-body">
-              <div class="section-divider" style="margin-top:0">Relances automatiques IA</div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Relances automatiques activées</div><div class="toggle-desc">L'IA envoie les relances sans votre validation</div></div>
-                <label class="toggle"><input type="checkbox" id="n-auto" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Validation manuelle avant envoi</div><div class="toggle-desc">Vous approuvez chaque relance avant qu'elle soit envoyée</div></div>
-                <label class="toggle"><input type="checkbox" id="n-manual"/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Relances par SMS</div><div class="toggle-desc">En plus de l'email, un SMS est envoyé au client</div></div>
-                <label class="toggle"><input type="checkbox" id="n-sms" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="form-group" style="margin-top:16px">
-                <label class="form-label">Délai avant 1ère relance (jours après échéance)</label>
-                <input type="number" class="form-control" id="n-delay1" value="1" min="0" max="30"/>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Délai entre relances suivantes (jours)</label>
-                <input type="number" class="form-control" id="n-delay2" value="7" min="1" max="30"/>
-              </div>
-              <div class="section-divider">Notifications email</div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Facture payée</div><div class="toggle-desc">Recevez un email dès qu'un client paie</div></div>
-                <label class="toggle"><input type="checkbox" id="n-paid" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Nouvelle facture en retard</div><div class="toggle-desc">Alerte dès qu'une échéance est dépassée</div></div>
-                <label class="toggle"><input type="checkbox" id="n-late" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Résumé hebdomadaire</div><div class="toggle-desc">Bilan encours tous les lundis matin</div></div>
-                <label class="toggle"><input type="checkbox" id="n-weekly" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="toggle-row">
-                <div><div class="toggle-label">Alerte conformité</div><div class="toggle-desc">Rappel des échéances réglementaires</div></div>
-                <label class="toggle"><input type="checkbox" id="n-conform" checked/><span class="toggle-slider"></span></label>
-              </div>
-              <div class="section-divider">Configuration SMTP (envoi d'emails)</div>
-              <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:16px;font-size:.85rem;color:var(--text-muted)">
-                <div style="font-weight:700;color:var(--navy);margin-bottom:8px">Configuration dans <code style="background:var(--bg-light);padding:2px 6px;border-radius:4px;font-size:.8rem">backend/.env</code></div>
-                <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:.8rem;font-family:monospace;margin-bottom:12px;align-items:center">
-                  <div style="color:var(--text-muted)">SMTP_HOST</div><div id="smtp-host-val">smtp-relay.brevo.com</div>
-                  <div style="color:var(--text-muted)">SMTP_PORT</div><div id="smtp-port-val">587</div>
-                  <div style="color:var(--text-muted)">SMTP_USER</div><div id="smtp-user-val" style="color:var(--orange)">— non configuré</div>
-                  <div style="color:var(--text-muted)">SMTP_FROM</div><div id="smtp-from-val">noreply@facturepilot.ai</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span id="smtp-status" style="font-size:.82rem"></span>
-                  <button class="btn btn-ghost btn-sm" id="btn-test-email" onclick="testEmail()">📧 Envoyer un email de test</button>
-                </div>
-              </div>
-            </div>
-          </div>
+  <div class="card card-body">
+    <div class="section-divider" style="margin-top:0">Relances automatiques</div>
+    <div style="background:rgba(26,122,61,.06);border:1px solid rgba(26,122,61,.2);border-radius:10px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+      <span style="font-size:1.4rem;flex-shrink:0">⏰</span>
+      <div>
+        <div style="font-weight:700;color:var(--navy);margin-bottom:4px">Relances automatiques activées</div>
+        <div style="font-size:.84rem;color:var(--text-muted)">Vos clients reçoivent automatiquement une relance cordiale à <strong>J+7</strong>, une relance ferme à <strong>J+14</strong>, et une mise en demeure à <strong>J+30</strong> après l'échéance. Aucune action requise de votre part.</div>
+      </div>
+    </div>
+    <div class="section-divider">Notifications email</div>
+    <div style="font-size:.85rem;color:var(--text-muted);padding:14px;background:var(--bg-light);border-radius:8px;margin-bottom:12px">
+      Les notifications par email sont envoyées à votre adresse professionnelle configurée dans l'onglet <strong>Mon entreprise</strong>.
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Facture vue par le client</div><div class="toggle-desc">Notification dès qu'un client ouvre votre email de facture</div></div>
+      <label class="toggle"><input type="checkbox" id="n-viewed" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Nouvelle facture en retard</div><div class="toggle-desc">Alerte dès qu'une échéance est dépassée</div></div>
+      <label class="toggle"><input type="checkbox" id="n-late" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Résumé hebdomadaire</div><div class="toggle-desc">Bilan encours tous les lundis matin</div></div>
+      <label class="toggle"><input type="checkbox" id="n-weekly" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="section-divider">Test de configuration email</div>
+    <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:16px">
+      <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">Vérifiez que vos emails de facturation sont bien délivrés.</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="smtp-status" style="font-size:.82rem"></span>
+        <button class="btn btn-ghost btn-sm" id="btn-test-email" onclick="testEmail()">📧 Envoyer un email de test</button>
+      </div>
+    </div>
+  </div>
+</div>
 
           <!-- PLAN -->
           <div class="settings-panel" id="panel-plan">
@@ -295,6 +275,15 @@
                 <tbody id="billing-history"></tbody>
               </table>
               <div style="font-size:.78rem;color:var(--text-muted);margin-top:10px">Pour toute question : <a href="mailto:contact@facturepilot.ai" style="color:var(--orange)">contact@facturepilot.ai</a></div>
+              <div style="margin-top:20px;padding:16px;background:var(--bg-light);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div>
+                  <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Gérer mon abonnement</div>
+                  <div style="font-size:.8rem;color:var(--text-muted)">Modifier, résilier ou télécharger vos factures Stripe</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="btn-stripe-portal" onclick="openStripePortal()">
+                  🔗 Portail Stripe →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -363,7 +352,7 @@
                       <div style="font-size:.78rem;color:var(--text-muted)">Synchronisation automatique des paiements reçus</div>
                     </div>
                   </div>
-                  <span class="badge badge-paid">Connecté ✓</span>
+                  <span class="badge badge-draft">Bientôt</span>
                 </div>
 
                 <!-- Dougs / Indy -->
@@ -429,12 +418,12 @@
               </div>
 
               <!-- API key section -->
-              <div class="section-divider">Votre clé API</div>
-              <div style="display:flex;gap:10px;align-items:center">
-                <input class="form-control" id="api-key-display" value="fp_live_••••••••••••••••••••••••••••••••" readonly style="font-family:monospace;font-size:.82rem;color:var(--text-muted)"/>
-                <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="document.getElementById('api-key-display').value='fp_live_a8f3k2p9x7m1r4v6n0s5q8w3j2demo'; FP.toast('Clé API copiée !','info')">Voir</button>
+              <div class="section-divider">API FacturePilot</div>
+              <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:16px 20px;font-size:.85rem">
+                <div style="font-weight:700;color:var(--navy);margin-bottom:6px">🔑 API REST — Disponible en v2</div>
+                <div style="color:var(--text-muted);margin-bottom:12px">Intégrez FacturePilot dans vos outils métier. Rejoignez la liste d'attente pour accéder en avant-première.</div>
+                <a href="mailto:contact@facturepilot.ai?subject=Accès API FacturePilot" class="btn btn-ghost btn-sm">📧 Rejoindre la liste d'attente</a>
               </div>
-              <div style="font-size:.78rem;color:var(--text-muted);margin-top:6px">Utilisez cette clé dans l'en-tête <code style="background:var(--bg-light);padding:1px 5px;border-radius:4px">Authorization: Bearer &lt;token&gt;</code> de vos appels API.</div>
             </div>
           </div>
 
@@ -576,12 +565,10 @@ function renderPlanPanel() {
     if (current.key === 'essentiel') {
       tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);font-size:.85rem;padding:20px">Aucune facture — plan gratuit</td></tr>`;
     } else {
-      const now = new Date();
-      tbody.innerHTML = Array.from({ length: 3 }, (_, m) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-        const ds = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-        return `<tr><td>${ds}</td><td>${current.label}</td><td>${current.price.replace(' €', ',00 €')}</td><td><span class="badge badge-paid">Payé</span></td></tr>`;
-      }).join('');
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);font-size:.85rem">
+  Votre historique de facturation apparaîtra ici après votre premier paiement.<br/>
+  <a href="mailto:contact@facturepilot.ai" style="color:var(--orange);font-size:.8rem">Une question sur votre abonnement ?</a>
+</td></tr>`;
     }
   }
 }
@@ -738,7 +725,7 @@ async function saveAll() {
     localStorage.setItem('fp_user', JSON.stringify(result));
 
     // Save notifications
-    const notifIds = ['n-auto','n-manual','n-sms','n-paid','n-late','n-weekly','n-conform'];
+    const notifIds = ['n-viewed','n-late','n-weekly'];
     const notifs = {};
     notifIds.forEach(id => { const el = document.getElementById(id); if (el) notifs[id] = el.checked; });
     localStorage.setItem('fp_notifications', JSON.stringify(notifs));
@@ -978,6 +965,19 @@ async function lookupSiren() {
     FP.toast(e.message || 'Entreprise introuvable', 'error');
   } finally {
     btn.textContent = '🔍 Auto-compléter depuis le SIREN'; btn.disabled = false;
+  }
+}
+
+async function openStripePortal() {
+  const btn = document.getElementById('btn-stripe-portal');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Chargement…'; }
+  try {
+    const { url } = await FP.api('/api/stripe/portal', { method: 'POST' });
+    window.open(url, '_blank');
+  } catch(err) {
+    FP.toast(err.message || 'Aucun abonnement Stripe trouvé', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 Portail Stripe →'; }
   }
 }
 
