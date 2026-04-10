@@ -66,6 +66,10 @@ app.use(cors({
   credentials: true,
 }));
 
+// ─── Stripe webhook (RAW body — DOIT être avant express.json) ────────────────
+// Stripe envoie un corps brut signé ; express.json() le détruirait avant vérification
+app.use('/api/stripe', require('./routes/stripe'));
+
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '5mb' }));   // 5 MB pour logos base64
 app.use(express.urlencoded({ extended: true }));
