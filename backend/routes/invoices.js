@@ -550,6 +550,53 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// POST /api/invoices/:id/ai-relance — génère un email de relance via LLM
+// Plan pro/business uniquement ; retourne { subject, body } sans envoyer l'email
+router.post('/:id/ai-relance', auth, async (req, res) => {
+  try {
+    // Vérif plan (feature pro+)
+    const { rows: [u] } = await db.query('SELECT plan FROM users WHERE id=$1', [req.user.id]);
+    if (!u || !['pro','business'].includes(u.plan)) {
+      return res.status(403).json({ error: 'Fonctionnalité réservée aux plans Pro et Business' });
+    }
+
+    const inv = (await db.query(
+      `SELECT i.*, c.nom as client_nom_full, c.risque
+         FROM invoices i LEFT JOIN clients c ON i.client_id = c.id
+        WHERE i.id = $1 AND i.user_id = $2`,
+      [req.params.id, req.user.id]
+    )).rows[0];
+    if (!inv) return res.status(404).json({ error: 'Facture introuvable' });
+
+    // Historique des relances déjà envoyées
+    const { rows: hist } = await db.query(
+      `SELECT TO_CHAR(created_at,'YYYY-MM-DD') as date, ton FROM relances
+        WHERE invoice_id = $1 ORDER BY created_at`,
+      [req.params.id]
+    );
+
+    const { tone } = req.body; // le front envoie le ton souhaité
+    const daysLateVal = Math.max(0,
+      Math.floor((Date.now() - new Date(inv.date_echeance)) / 86400000)
+    );
+
+    const { generateDunningEmail } = require('../services/ai.service');
+    const result = await generateDunningEmail(
+      inv.client_nom_full || inv.client_nom,
+      Number(inv.montant_ttc),
+      daysLateVal,
+      tone || 'courtois',
+      hist,
+      { invoiceNumber: inv.numero }
+    );
+
+    res.json(result); // { subject, body }
+  } catch (err) {
+    console.error('[AI relance]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/invoices/stats/aging — balance âgée
 router.get('/stats/aging', auth, async (req, res) => {
   try {
