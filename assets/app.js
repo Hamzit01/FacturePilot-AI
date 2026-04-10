@@ -62,7 +62,9 @@ const FP = (() => {
         apiFetch('/api/clients').then(r => r.json()),
         apiFetch('/api/invoices').then(r => r.json()),
       ]);
-      set('fp_user', me);
+      // Sanitize avant stockage localStorage : exclure IBAN/BIC
+      const { iban: _iban, bic: _bic, ...safeMe } = me;
+      set('fp_user', safeMe);
       set('fp_clients', clients);
       set('fp_invoices', invoices);
       if (_activePage) renderSidebar(_activePage);
@@ -212,17 +214,23 @@ const FP = (() => {
   // ─── USER ─────────────────────────────────────────────────────────────────────
   const DEFAULT_USER = {
     prenom: '', nom: '', email: '', entreprise: '', siren: '',
-    tva: '', adresse: '', tel: '', iban: '', bic: '',
+    tva: '', adresse: '', tel: '',
     plan: 'essentiel', logo: null, couleurFacture: '#1B3A4B',
   };
   const getUser = () => get('fp_user', DEFAULT_USER);
   const saveUser = (data) => {
     const merged = { ...getUser(), ...data };
-    set('fp_user', merged);
+    // Ne jamais persister IBAN/BIC dans localStorage
+    const { iban: _i, bic: _b, ...safeToStore } = merged;
+    set('fp_user', safeToStore);
     if (localStorage.getItem('fp_token')) {
       return apiFetch('/api/me', { method: 'PUT', body: JSON.stringify(merged) })
         .then(r => r.json())
-        .then(updated => { set('fp_user', { ...merged, ...updated }); return updated; })
+        .then(updated => {
+          const { iban: _ui, bic: _ub, ...safeUpdated } = { ...merged, ...updated };
+          set('fp_user', safeUpdated);
+          return updated;
+        })
         .catch(err => { toast(err.message, 'error'); throw err; });
     }
     return Promise.resolve(merged);

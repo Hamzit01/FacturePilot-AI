@@ -123,7 +123,23 @@ document.getElementById('login-form').onsubmit = async function(e) {
     if (!res.ok) throw new Error(data.error || 'Identifiants incorrects');
     localStorage.setItem('fp_token', data.token);
     localStorage.setItem('fp_logged', '1');
-    localStorage.setItem('fp_user', JSON.stringify(data.user));
+    // Ne stocker que les données non-sensibles (jamais IBAN/BIC en clair)
+    const safeUser = {
+      id: data.user.id,
+      prenom: data.user.prenom,
+      nom: data.user.nom,
+      email: data.user.email,
+      entreprise: data.user.entreprise,
+      siren: data.user.siren,
+      tva: data.user.tva,
+      tel: data.user.tel,
+      adresse: data.user.adresse,
+      plan: data.user.plan,
+      couleurFacture: data.user.couleurFacture,
+      logo: data.user.logo || null,
+      // IBAN/BIC exclus volontairement — fetché depuis /api/me à la demande
+    };
+    localStorage.setItem('fp_user', JSON.stringify(safeUser));
     // Pre-load data so dashboard renders instantly with real data
     btn.textContent = 'Chargement…';
     const hdrs = { Authorization: `Bearer ${data.token}` };

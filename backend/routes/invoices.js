@@ -445,6 +445,58 @@ router.post('/:id/send-email', auth, async (req, res) => {
   }
 });
 
+// GET /api/invoices/:id/facturx — PDF/A-3b avec XML EN 16931 embarqué (Factur-X officiel)
+router.get('/:id/facturx', auth, async (req, res) => {
+  try {
+    const inv = (await db.query(
+      `SELECT i.*, c.siret as client_siret, c.adresse as client_adresse, c.email as client_email,
+              c.nom as client_nom_contact
+       FROM invoices i LEFT JOIN clients c ON i.client_id = c.id
+       WHERE i.id = $1 AND i.user_id = $2`,
+      [req.params.id, req.user.id]
+    )).rows[0];
+    if (!inv) return res.status(404).json({ error: 'Facture introuvable' });
+    if (inv.statut === 'brouillon') return res.status(400).json({ error: 'Impossible de générer un Factur-X pour un brouillon. Finalisez la facture d\'abord.' });
+
+    const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
+    const client = {
+      nom: inv.client_nom_contact || inv.client_nom,
+      siret: inv.client_siret || '',
+      adresse: inv.client_adresse || '',
+    };
+
+    const { buildFacturXML, generateFacturXPDF } = require('../services/facturx');
+    const { generateInvoicePDF }                 = require('../services/pdf');
+
+    // 1. Générer le XML EN 16931
+    const xmlString = buildFacturXML(inv, user, client);
+
+    // 2. Générer le PDF de base (snapshot figé si dispo, sinon live)
+    let invData = inv;
+    if (inv.invoice_snapshot) {
+      try {
+        const snap = typeof inv.invoice_snapshot === 'string'
+          ? JSON.parse(inv.invoice_snapshot) : inv.invoice_snapshot;
+        invData = { ...inv, ...snap.inv };
+      } catch { /* fallback */ }
+    }
+    const pdfBuffer = await generateInvoicePDF(invData, user);
+
+    // 3. Embedder le XML dans le PDF → PDF/A-3b
+    const facturXBuffer = await generateFacturXPDF(pdfBuffer, xmlString, inv.numero);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${inv.numero}-facturx.pdf"`,
+      'Cache-Control': 'private, max-age=3600',
+    });
+    res.end(Buffer.from(facturXBuffer));
+  } catch (err) {
+    console.error('[FacturX]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/invoices/:id/pdf — télécharge le PDF (données figées si facture envoyée)
 router.get('/:id/pdf', auth, async (req, res) => {
   try {

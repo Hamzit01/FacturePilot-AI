@@ -189,6 +189,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
 FP.renderSidebar('clients');
@@ -232,9 +233,9 @@ function render() {
             <div class="client-avatar" style="background:${getColor(c.nom)}">${initials(c.nom)}</div>
             <span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span>
           </div>
-          <div class="client-nom">${c.nom}</div>
-          <div class="client-detail">${c.email||'—'}</div>
-          <div class="client-detail">${c.secteur||'—'} · ${c.delaiPaiement||30}j</div>
+          <div class="client-nom">${DOMPurify.sanitize(c.nom||'')}</div>
+          <div class="client-detail">${DOMPurify.sanitize(c.email||'—')}</div>
+          <div class="client-detail">${DOMPurify.sanitize(c.secteur||'—')} · ${c.delaiPaiement||30}j</div>
           <div class="client-stats">
             <div class="stat-mini"><div class="val">${invCount}</div><div class="lbl">Factures</div></div>
             <div class="stat-mini"><div class="val" style="color:${enc>0?'var(--orange)':'var(--green)'}">${FP.money(enc)}</div><div class="lbl">Encours</div></div>
@@ -258,8 +259,8 @@ function render() {
     document.getElementById('clients-tbody').innerHTML = clients.map(c=>{
       const enc = getClientEncours(c.id);
       return `<tr onclick="viewClient('${c.id}')">
-        <td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:8px;background:${getColor(c.nom)};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.78rem">${initials(c.nom)}</div><strong>${c.nom}</strong></div></td>
-        <td>${c.email||'—'}</td><td>${c.tel||'—'}</td><td>${c.secteur||'—'}</td>
+        <td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:8px;background:${getColor(c.nom)};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.78rem">${initials(c.nom)}</div><strong>${DOMPurify.sanitize(c.nom||'')}</strong></div></td>
+        <td>${DOMPurify.sanitize(c.email||'—')}</td><td>${DOMPurify.sanitize(c.tel||'—')}</td><td>${DOMPurify.sanitize(c.secteur||'—')}</td>
         <td>${c.delaiPaiement||30} j</td>
         <td><span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span></td>
         <td style="font-weight:700;color:${enc>0?'var(--orange)':'var(--text-muted)'}">${enc>0?FP.money(enc):'0,00 €'}</td>
@@ -352,9 +353,9 @@ function viewClient(id) {
       <div>
         <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Informations</div>
         <div style="font-size:.88rem;display:flex;flex-direction:column;gap:6px">
-          <div><strong>Email :</strong> ${c.email||'—'}</div>
-          <div><strong>Tél :</strong> ${c.tel||'—'}</div>
-          <div><strong>Adresse :</strong> ${c.adresse||'—'}</div>
+          <div><strong>Email :</strong> ${DOMPurify.sanitize(c.email||'—')}</div>
+          <div><strong>Tél :</strong> ${DOMPurify.sanitize(c.tel||'—')}</div>
+          <div><strong>Adresse :</strong> ${DOMPurify.sanitize(c.adresse||'—')}</div>
           <div><strong>Délai de paiement :</strong> ${c.delaiPaiement||30} jours</div>
           <div><strong>Risque :</strong> <span class="badge badge-${c.risque==='faible'?'paid':c.risque==='moyen'?'pending':'overdue'}">${c.risque||'faible'}</span></div>
           <div><strong>Client depuis :</strong> ${FP.dateStr(c.createdAt)}</div>
@@ -527,5 +528,23 @@ function downloadCSVTemplate() {
 
 render();
 </script>
+<nav class="bottom-nav">
+  <a href="dashboard.html" aria-label="Dashboard">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </a>
+  <a href="factures.html" aria-label="Factures">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Factures
+  </a>
+  <a href="clients.html" class="active" aria-label="Clients">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Clients
+  </a>
+  <a href="relances.html" aria-label="Relances">
+    <svg viewBox="0 0 24 24"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Relances
+  </a>
+</nav>
 </body>
 </html>
