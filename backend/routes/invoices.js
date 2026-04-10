@@ -5,6 +5,25 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+const PLAN_LIMITS = { essentiel: 10, pro: 100, business: Infinity };
+
+async function checkPlanLimit(userId) {
+  const { rows: [u] } = await db.query('SELECT plan FROM users WHERE id=$1', [userId]);
+  const plan  = (u?.plan || 'essentiel').toLowerCase();
+  const limit = PLAN_LIMITS[plan] ?? 10;
+  if (limit === Infinity) return null; // pas de limite
+  const monthStart = new Date();
+  monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const { rows: [{ count }] } = await db.query(
+    "SELECT COUNT(*) FROM invoices WHERE user_id=$1 AND created_at >= $2 AND statut != 'brouillon'",
+    [userId, monthStart.toISOString()]
+  );
+  if (parseInt(count) >= limit) {
+    return { error: `Limite de ${limit} factures/mois atteinte sur le plan ${plan}. Passez au plan supérieur.`, upgrade: true, limit, current: parseInt(count) };
+  }
+  return null;
+}
+
 const daysLate = (dateEcheance) => {
   const diff = Date.now() - new Date(dateEcheance).getTime();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -179,6 +198,10 @@ router.post('/', auth, async (req, res) => {
     if (new Date(dateEcheance) < new Date(dateEmission))
       return res.status(400).json({ error: 'La date d\'échéance doit être postérieure ou égale à la date d\'émission' });
 
+    // Vérifier limite du plan
+    const limitErr = await checkPlanLimit(req.user.id);
+    if (limitErr) return res.status(403).json(limitErr);
+
     // Auto-generate numero if missing
     let num = numero;
     if (!num) {
@@ -207,8 +230,16 @@ router.post('/', auth, async (req, res) => {
 // PUT /api/invoices/:id
 router.put('/:id', auth, async (req, res) => {
   try {
-    const existing = (await db.query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
+    const existing = (await db.query('SELECT id, statut FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Facture introuvable' });
+
+    if (['envoyee', 'payee', 'retard'].includes(existing.statut)) {
+      return res.status(409).json({
+        error: 'Une facture émise ou payée ne peut pas être modifiée. Passez-la en brouillon d\'abord ou créez un avoir.',
+        statut: existing.statut,
+      });
+    }
+
     const { clientId, clientNom, numero, objet, lignes, montantHT, tva, montantTTC, dateEmission, dateEcheance, statut, notes } = req.body;
     await db.query(`
       UPDATE invoices SET client_id=$1,client_nom=$2,numero=$3,objet=$4,lignes=$5,montant_ht=$6,tva=$7,montant_ttc=$8,
@@ -233,6 +264,15 @@ router.patch('/:id/statut', auth, async (req, res) => {
     const existing = (await db.query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Facture introuvable' });
     await db.query('UPDATE invoices SET statut=$1 WHERE id=$2 AND user_id=$3', [statut, req.params.id, req.user.id]);
+
+    // Log si passage en payée
+    if (statut === 'payee') {
+      db.query(
+        "INSERT INTO audit_log (user_id, action, entity, entity_id, payload, ip) VALUES ($1,'mark_paid','invoice',$2,$3,$4)",
+        [req.user.id, parseInt(req.params.id), JSON.stringify({ statut }), req.ip || '']
+      ).catch(() => {});
+    }
+
     const row = (await db.query('SELECT * FROM invoices WHERE id = $1', [req.params.id])).rows[0];
     const { rows: relances } = await db.query('SELECT * FROM relances WHERE invoice_id = $1 ORDER BY created_at', [row.id]);
     res.json(fmtInv(row, relances));
@@ -346,6 +386,12 @@ router.post('/:id/send-email', auth, async (req, res) => {
     if (inv.statut === 'brouillon') {
       await db.query("UPDATE invoices SET statut='envoyee' WHERE id=$1", [req.params.id]);
     }
+
+    // Log audit
+    db.query(
+      "INSERT INTO audit_log (user_id, action, entity, entity_id, payload, ip) VALUES ($1,'send_invoice','invoice',$2,$3,$4)",
+      [req.user.id, parseInt(req.params.id), JSON.stringify({ to: inv.client_email, numero: inv.numero, montant: inv.montant_ttc }), req.ip || '']
+    ).catch(() => {});
 
     res.json({ ok: true, message: `Facture envoyée à ${inv.client_email}` });
   } catch (err) {

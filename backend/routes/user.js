@@ -163,4 +163,23 @@ router.post('/test-email', auth, async (req, res) => {
   }
 });
 
+// GET /api/me/plan-usage — usage facturation du mois en cours
+router.get('/plan-usage', auth, async (req, res) => {
+  try {
+    const { rows: [u] } = await db.query('SELECT plan FROM users WHERE id=$1', [req.user.id]);
+    const plan  = (u?.plan || 'essentiel').toLowerCase();
+    const limits = { essentiel: 10, pro: 100, business: null };
+    const limit  = limits[plan] ?? 10;
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const { rows: [{ count }] } = await db.query(
+      "SELECT COUNT(*) FROM invoices WHERE user_id=$1 AND created_at >= $2 AND statut != 'brouillon'",
+      [req.user.id, monthStart.toISOString()]
+    );
+    const used = parseInt(count);
+    res.json({ plan, limit, used, remaining: limit ? Math.max(0, limit - used) : null });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

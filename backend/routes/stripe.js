@@ -117,4 +117,28 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   res.json({ received: true });
 });
 
+// POST /api/stripe/portal — Stripe Customer Portal (self-service abonnement)
+router.post('/portal', require('../middleware/auth'), async (req, res) => {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) return res.status(500).json({ error: 'STRIPE_SECRET_KEY manquant' });
+  try {
+    const stripe = require('stripe')(secretKey);
+    const user = (await db.query('SELECT email FROM users WHERE id=$1', [req.user.id])).rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    // Chercher le customer Stripe par email
+    const customers = await stripe.customers.list({ email: user.email.toLowerCase(), limit: 1 });
+    if (!customers.data.length) {
+      return res.status(404).json({ error: 'Aucun abonnement Stripe trouvé pour ce compte.' });
+    }
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customers.data[0].id,
+      return_url: process.env.APP_URL || 'https://facturepilot-ai-beta111.vercel.app/settings.html',
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('[Stripe Portal]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

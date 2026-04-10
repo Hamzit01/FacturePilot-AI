@@ -48,6 +48,10 @@ router.post('/relances', async (req, res) => {
 
     if (!clientEmail) continue;
 
+    // Vérification live : la facture est-elle toujours en retard ?
+    const { rows: [live] } = await db.query('SELECT statut FROM invoices WHERE id=$1', [f.id]);
+    if (!live || live.statut !== 'retard') continue;
+
     const message = joursRetard >= 30
       ? `Malgré nos précédentes relances, votre facture ${f.numero} d'un montant de ${montant} € TTC reste impayée depuis ${joursRetard} jours (échéance : ${echeance}). Sans règlement sous 8 jours, nous serons contraints d'engager une procédure de recouvrement.`
       : `Sauf erreur de notre part, votre facture ${f.numero} d'un montant de ${montant} € TTC était à régler le ${echeance}. Pourriez-vous procéder au règlement dans les meilleurs délais ?`;

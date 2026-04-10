@@ -145,9 +145,9 @@ async function initDB() {
       client_nom      TEXT    NOT NULL DEFAULT '',
       numero          TEXT    NOT NULL,
       objet           TEXT    DEFAULT '',
-      montant_ht      REAL    NOT NULL DEFAULT 0,
-      tva             REAL    NOT NULL DEFAULT 20,
-      montant_ttc     REAL    NOT NULL DEFAULT 0,
+      montant_ht      NUMERIC(12,2) NOT NULL DEFAULT 0,
+      tva             NUMERIC(5,2)  NOT NULL DEFAULT 20,
+      montant_ttc     NUMERIC(12,2) NOT NULL DEFAULT 0,
       date_emission   TEXT    NOT NULL,
       date_echeance   TEXT    NOT NULL,
       statut          TEXT    NOT NULL DEFAULT 'brouillon',
@@ -192,6 +192,32 @@ async function initDB() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_clients_user  ON clients(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_relances_inv  ON relances(invoice_id)');
+
+  // Migration REAL → NUMERIC pour éviter les erreurs de virgule flottante sur les montants
+  await pool.query(`
+    ALTER TABLE invoices
+      ALTER COLUMN montant_ht  TYPE NUMERIC(12,2) USING montant_ht::NUMERIC(12,2),
+      ALTER COLUMN tva         TYPE NUMERIC(5,2)  USING tva::NUMERIC(5,2),
+      ALTER COLUMN montant_ttc TYPE NUMERIC(12,2) USING montant_ttc::NUMERIC(12,2)
+  `).catch(() => {}); // Idempotent — ignore si déjà fait
+
+  // Table audit log
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL,
+      action      TEXT    NOT NULL,
+      entity      TEXT    NOT NULL,
+      entity_id   INTEGER,
+      payload     JSONB,
+      ip          TEXT    DEFAULT '',
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at DESC)');
+
+  // Index unique sur (user_id, numero) pour empêcher les doublons de numéro de facture
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_numero ON invoices(user_id, numero)');
 
   // Seed si la table users est vide
   const { rows } = await pool.query('SELECT COUNT(*) as n FROM users');
