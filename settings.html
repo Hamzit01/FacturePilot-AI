@@ -118,7 +118,12 @@
               </div>
               <div class="form-group"><label class="form-label">Nom de l'entreprise</label><input class="form-control" id="s-entreprise"/></div>
               <div class="form-row">
-                <div class="form-group"><label class="form-label">SIREN</label><input class="form-control" id="s-siren" placeholder="9 chiffres"/></div>
+                <div class="form-group"><label class="form-label">SIREN</label><input class="form-control" id="s-siren" placeholder="9 chiffres"/>
+                  <button type="button" id="siren-lookup-btn" class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%" onclick="lookupSiren()">
+                    🔍 Auto-compléter depuis le SIREN
+                  </button>
+                  <div id="siren-result" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:8px;font-size:.82rem"></div>
+                </div>
                 <div class="form-group"><label class="form-label">Numéro TVA intracommunautaire</label><input class="form-control" id="s-tva" placeholder="FR12123456789"/></div>
               </div>
               <div class="form-group"><label class="form-label">Adresse complète</label><input class="form-control" id="s-adresse"/></div>
@@ -899,6 +904,27 @@ function calcProfileScore() {
   if (el) el.addEventListener('input', calcProfileScore);
 });
 calcProfileScore();
+
+async function lookupSiren() {
+  const siren = document.getElementById('s-siren').value.trim().replace(/\s/g,'');
+  if (siren.length !== 9) { FP.toast('SIREN invalide — 9 chiffres requis', 'error'); return; }
+  const btn = document.getElementById('siren-lookup-btn');
+  btn.textContent = '⏳ Recherche...'; btn.disabled = true;
+  try {
+    const data = await FP.api(`/api/me/siren/${siren}`);
+    if (data.error) throw new Error(data.error);
+    // Pré-remplir les champs
+    if (data.nom)     document.getElementById('s-entreprise').value = data.nom;
+    if (data.adresse) document.getElementById('s-adresse').value    = data.adresse;
+    document.getElementById('siren-result').style.display = 'block';
+    document.getElementById('siren-result').innerHTML = `✅ <strong>${data.nom}</strong> — ${data.adresse || ''}${data.activite ? ' · Code NAF : '+data.activite : ''}`;
+    FP.toast('Entreprise trouvée et pré-remplie !');
+  } catch(e) {
+    FP.toast(e.message || 'Entreprise introuvable', 'error');
+  } finally {
+    btn.textContent = '🔍 Auto-compléter depuis le SIREN'; btn.disabled = false;
+  }
+}
 
 async function deleteAccount() {
   FP.confirm(

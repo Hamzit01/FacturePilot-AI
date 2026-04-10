@@ -180,6 +180,15 @@ async function initDB() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS invoice_views (
+      id          SERIAL PRIMARY KEY,
+      invoice_id  INTEGER NOT NULL,
+      viewed_at   TIMESTAMPTZ DEFAULT NOW(),
+      ip          TEXT DEFAULT ''
+    )
+  `);
+
   await pool.query('CREATE INDEX IF NOT EXISTS idx_clients_user  ON clients(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_relances_inv  ON relances(invoice_id)');

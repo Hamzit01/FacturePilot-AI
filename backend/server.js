@@ -99,6 +99,7 @@ app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/me',       require('./routes/user'));
 app.use('/api/clients',  require('./routes/clients'));
 app.use('/api/invoices', require('./routes/invoices'));
+app.use('/api/cron',    require('./routes/cron'));
 
 // ─── Static files (frontend) ─────────────────────────────────────────────────
 const STATIC_DIR = path.join(__dirname, '..');

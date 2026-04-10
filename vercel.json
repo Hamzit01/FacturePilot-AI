@@ -31,5 +31,11 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "backend/server.js" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/relances",
+      "schedule": "0 8 * * *"
+    }
   ]
 }

@@ -16,7 +16,7 @@ const toDate = (v) => {
   return String(v).split('T')[0];
 };
 
-const fmtInv = (inv, relances = []) => {
+const fmtInv = (inv, relances = [], views = 0) => {
   let statut = inv.statut;
   if (statut === 'envoyee' && daysLate(inv.date_echeance) > 0) statut = 'retard';
   return {
@@ -28,6 +28,7 @@ const fmtInv = (inv, relances = []) => {
     montantHT: inv.montant_ht, tva: inv.tva, montantTTC: inv.montant_ttc,
     dateEmission: inv.date_emission, dateEcheance: inv.date_echeance,
     statut, factureX: !!inv.facture_x, notes: inv.notes || '',
+    views,
     createdAt: inv.created_at instanceof Date ? inv.created_at.toISOString() : inv.created_at,
     relances: relances.map(r => ({
       id: r.id, type: r.type, ton: r.ton,
@@ -35,6 +36,74 @@ const fmtInv = (inv, relances = []) => {
     })),
   };
 };
+
+// GET /api/invoices/export/fec — export FEC pour expert-comptable
+router.get('/export/fec', auth, async (req, res) => {
+  try {
+    const { rows: invoices } = await db.query(
+      "SELECT * FROM invoices WHERE user_id = $1 AND statut IN ('envoyee','payee','retard') ORDER BY date_emission",
+      [req.user.id]
+    );
+    const { rows: [user] } = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+
+    // Format FEC : fichier texte tabulé, encodage UTF-8 avec BOM
+    const sep = '\t';
+    const headers = ['JournalCode','JournalLib','EcritureNum','EcritureDate','CompteNum','CompteLib','CompAuxNum','CompAuxLib','PieceRef','PieceDate','EcritureLib','Debit','Credit','EcritureLet','DateLet','ValidDate','Montantdevise','Idevise'].join(sep);
+
+    const lines = [headers];
+    invoices.forEach((inv, idx) => {
+      const dateStr = inv.date_emission.replace(/-/g, '');
+      const num = String(idx + 1).padStart(6, '0');
+      const montantHT = Number(inv.montant_ht).toFixed(2).replace('.', ',');
+      const tvaAmt = (Number(inv.montant_ttc) - Number(inv.montant_ht)).toFixed(2).replace('.', ',');
+
+      // Ligne client (débit)
+      lines.push([
+        'VT', 'Ventes', `VT${num}`, dateStr,
+        '411000', 'Clients', inv.client_nom.slice(0,17).replace(/\t/g,' '), inv.client_nom.replace(/\t/g,' '),
+        inv.numero, dateStr, (inv.objet || inv.numero).slice(0,99).replace(/\t/g,' '),
+        Number(inv.montant_ttc).toFixed(2).replace('.', ','), '0,00',
+        '', '', dateStr, '', ''
+      ].join(sep));
+
+      // Ligne produit (crédit HT)
+      lines.push([
+        'VT', 'Ventes', `VT${num}`, dateStr,
+        '706000', 'Prestations de services', '', '',
+        inv.numero, dateStr, (inv.objet || inv.numero).slice(0,99).replace(/\t/g,' '),
+        '0,00', montantHT,
+        '', '', dateStr, '', ''
+      ].join(sep));
+
+      // Ligne TVA (crédit TVA)
+      if (inv.tva > 0) {
+        lines.push([
+          'VT', 'Ventes', `VT${num}`, dateStr,
+          '445710', 'TVA collectée', '', '',
+          inv.numero, dateStr, `TVA ${inv.tva}%`,
+          '0,00', tvaAmt,
+          '', '', dateStr, '', ''
+        ].join(sep));
+      }
+    });
+
+    const siren = (user.siren || 'SIREN').replace(/\s/g,'');
+    const year = new Date().getFullYear();
+    const filename = `${siren}FEC${year}1231.txt`;
+    const bom = Buffer.from('\uFEFF', 'utf8');
+    const content = Buffer.from(lines.join('\r\n'), 'utf8');
+
+    res.set({
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': bom.length + content.length,
+    });
+    res.end(Buffer.concat([bom, content]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/invoices
 router.get('/', auth, async (req, res) => {
@@ -45,6 +114,7 @@ router.get('/', auth, async (req, res) => {
     );
 
     let relancesMap = {};
+    let viewsMap = {};
     if (invRows.length > 0) {
       const { rows: relRows } = await db.query(
         'SELECT * FROM relances WHERE invoice_id = ANY($1::int[]) ORDER BY created_at',
@@ -55,13 +125,30 @@ router.get('/', auth, async (req, res) => {
         acc[r.invoice_id].push(r);
         return acc;
       }, {});
+
+      const { rows: viewRows } = await db.query(
+        'SELECT invoice_id, COUNT(*) as count FROM invoice_views WHERE invoice_id = ANY($1::int[]) GROUP BY invoice_id',
+        [invRows.map(i => i.id)]
+      );
+      viewsMap = viewRows.reduce((acc, r) => { acc[r.invoice_id] = parseInt(r.count); return acc; }, {});
     }
 
-    res.json(invRows.map(inv => fmtInv(inv, relancesMap[inv.id] || [])));
+    res.json(invRows.map(inv => fmtInv(inv, relancesMap[inv.id] || [], viewsMap[inv.id] || 0)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/invoices/:id/pixel.gif — pixel de tracking (1x1 GIF transparent)
+router.get('/:id/pixel.gif', async (req, res) => {
+  const GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store', 'Content-Length': GIF.length });
+  res.end(GIF);
+  // Log en arrière-plan (non bloquant)
+  const ip = req.headers['x-forwarded-for'] || req.ip || '';
+  db.query('INSERT INTO invoice_views (invoice_id, ip) VALUES ($1, $2)', [req.params.id, ip])
+    .catch(() => {});
 });
 
 // GET /api/invoices/:id
@@ -70,7 +157,9 @@ router.get('/:id', auth, async (req, res) => {
     const row = (await db.query('SELECT * FROM invoices WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
     if (!row) return res.status(404).json({ error: 'Facture introuvable' });
     const { rows: relances } = await db.query('SELECT * FROM relances WHERE invoice_id = $1 ORDER BY created_at', [row.id]);
-    res.json(fmtInv(row, relances));
+    const { rows: viewRows } = await db.query('SELECT COUNT(*) as count FROM invoice_views WHERE invoice_id = $1', [row.id]);
+    const views = parseInt(viewRows[0]?.count || 0);
+    res.json(fmtInv(row, relances, views));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -241,6 +330,7 @@ router.post('/:id/send-email', auth, async (req, res) => {
             <p style="color:#374151;margin-top:20px">Cordialement,<br/><strong>${user.prenom} ${user.nom}</strong><br/><span style="color:#6b7280">${user.entreprise}</span>${user.tel ? `<br/><span style="color:#6b7280">${user.tel}</span>` : ''}</p>
             <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
             <p style="font-size:.78rem;color:#9ca3af;text-align:center">✓ Facture au format Factur-X conforme réforme 2026 · Généré par FacturePilot AI</p>
+            <img src="https://facturepilot-ai-beta111.vercel.app/api/invoices/${inv.id}/pixel.gif" width="1" height="1" style="display:block" alt=""/>
           </div>
         </div>
       `,

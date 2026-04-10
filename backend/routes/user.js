@@ -1,15 +1,17 @@
+// ENCRYPTION_KEY: générer avec: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 'use strict';
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { encrypt, decrypt } = require('../services/crypto');
 
 const router = express.Router();
 
 const sanitize = (u) => ({
   id: u.id, prenom: u.prenom, nom: u.nom, email: u.email,
   entreprise: u.entreprise, siren: u.siren, tva: u.tva_num,
-  adresse: u.adresse, tel: u.tel, iban: u.iban, bic: u.bic,
+  adresse: u.adresse, tel: u.tel, iban: decrypt(u.iban), bic: decrypt(u.bic),
   plan: u.plan, couleurFacture: u.couleur_facture, logo: u.logo,
   createdAt: u.created_at instanceof Date ? u.created_at.toISOString() : u.created_at,
 });
@@ -34,7 +36,7 @@ router.put('/', auth, async (req, res) => {
       UPDATE users SET prenom=$1, nom=$2, entreprise=$3, siren=$4, tva_num=$5,
         adresse=$6, tel=$7, iban=$8, bic=$9, couleur_facture=$10, logo=$11
       WHERE id=$12
-    `, [prenom, nom, entreprise, siren, tva, adresse, tel, iban, bic, couleurFacture, logo, req.user.id]);
+    `, [prenom, nom, entreprise, siren, tva, adresse, tel, encrypt(iban), encrypt(bic), couleurFacture, logo, req.user.id]);
     const user = (await db.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     res.json(sanitize(user));
   } catch (err) {
@@ -98,6 +100,26 @@ router.delete('/', auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/me/siren/:siren — lookup entreprise
+router.get('/siren/:siren', auth, async (req, res) => {
+  const { siren } = req.params;
+  if (!/^\d{9}$/.test(siren)) return res.status(400).json({ error: 'SIREN invalide (9 chiffres requis)' });
+  try {
+    const resp = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siren}&page=1&per_page=1`);
+    const data = await resp.json();
+    const result = data.results?.[0];
+    if (!result) return res.status(404).json({ error: 'Entreprise non trouvée' });
+    res.json({
+      siren: result.siren,
+      nom: result.nom_complet || result.nom_raison_sociale,
+      adresse: [result.siege?.adresse, result.siege?.code_postal, result.siege?.libelle_commune].filter(Boolean).join(', '),
+      activite: result.activite_principale,
+    });
+  } catch(err) {
+    res.status(502).json({ error: 'Erreur API Sirene', details: err.message });
   }
 });
 

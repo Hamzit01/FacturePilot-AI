@@ -3,6 +3,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { sign } = require('../middleware/auth');
+const { decrypt } = require('../services/crypto');
 
 const router = express.Router();
 
@@ -91,7 +92,7 @@ router.post('/register', async (req, res) => {
 const sanitize = (u) => ({
   id: u.id, prenom: u.prenom, nom: u.nom, email: u.email,
   entreprise: u.entreprise, siren: u.siren, tva: u.tva_num,
-  adresse: u.adresse, tel: u.tel, iban: u.iban, bic: u.bic,
+  adresse: u.adresse, tel: u.tel, iban: decrypt(u.iban), bic: decrypt(u.bic),
   plan: u.plan, couleurFacture: u.couleur_facture, logo: u.logo,
   createdAt: u.created_at instanceof Date ? u.created_at.toISOString() : u.created_at,
 });
