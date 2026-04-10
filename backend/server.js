@@ -37,8 +37,9 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// ─── DB ready middleware ──────────────────────────────────────────────────────
-app.use(async (req, res, next) => {
+// ─── DB ready middleware — UNIQUEMENT pour les routes /api ───────────────────
+// Les fichiers statiques (HTML/CSS/JS) sont toujours servis, même si la DB est down
+app.use('/api', async (req, res, next) => {
   try {
     await db.ready;
     next();

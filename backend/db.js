@@ -14,12 +14,18 @@ if (!process.env.DATABASE_URL) {
   console.error('[DB] ERREUR : DATABASE_URL non défini — vérifiez les variables d\'environnement Vercel');
 }
 
+// Sur Vercel (serverless), chaque Lambda démarre à froid — connexion courte obligatoire
+// Supabase Transaction Pooler (port 6543) + pgbouncer=true = compatible serverless
+const rawUrl  = process.env.DATABASE_URL || 'postgresql://localhost/facturepilot';
+const dbUrl   = rawUrl.includes('?') ? rawUrl : `${rawUrl}?pgbouncer=true&connection_limit=1`;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/facturepilot',
+  connectionString: dbUrl,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 8000,  // timeout connexion : 8s
-  idleTimeoutMillis: 30000,
-  max: 3,                         // max 3 connexions simultanées (serverless)
+  connectionTimeoutMillis: 10000, // 10s max pour obtenir une connexion
+  idleTimeoutMillis: 10000,       // libère la connexion après 10s d'inactivité
+  max: 3,                         // max 3 connexions (serverless — pas de pool persistant)
+  allowExitOnIdle: true,          // libère le process quand inactif (bon pour Lambda)
 });
 
 // ─── SEED: create demo user + data if DB is empty ────────────────────────────
