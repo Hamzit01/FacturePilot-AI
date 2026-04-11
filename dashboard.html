@@ -105,10 +105,10 @@
           </div>
           <div class="card">
             <div class="card-header">
-              <div><h3>Actions IA en attente</h3><div class="card-sub" id="ai-sub"></div></div>
-              <span style="font-size:.75rem;color:var(--text-muted)">⏰ Géré automatiquement par l'IA à 8h00</span>
+              <div><h3>Activité récente</h3><div class="card-sub" id="ai-sub"></div></div>
+              <span style="font-size:.75rem;color:var(--text-muted)">⏰ Relances auto à 8h00</span>
             </div>
-            <div class="card-body" id="ai-list" style="padding:12px"></div>
+            <div class="card-body" id="ai-list" style="padding:6px 16px 12px"></div>
             <div class="card-footer" style="text-align:center"><a href="relances.html" style="color:var(--orange);font-weight:600">Gérer les relances →</a></div>
           </div>
         </div>
@@ -208,14 +208,49 @@ document.getElementById('days-left').textContent = days > 0 ? days : 0;
 const opts = {weekday:'long',year:'numeric',month:'long',day:'numeric'};
 document.getElementById('top-date').textContent = new Date().toLocaleDateString('fr-FR', opts);
 
-// KPIs
+// KPIs — Cash-Flow storytelling
 const kpi = FP.getKPIs();
 const invs = FP.getInvoices();
+const pct = kpi.tauxRecouvrement;
+const donutColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--orange)' : 'var(--red)';
+const donutDeg = Math.round(pct * 3.6);
 document.getElementById('kpi-grid').innerHTML = `
-  <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon navy"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div><span class="kpi-trend trend-neutral">${invs.filter(i=>i.statut!=='brouillon').length} factures</span></div><div class="kpi-val">${FP.money(kpi.caMonth).replace(' €','')}<span style="font-size:1rem"> €</span></div><div class="kpi-label">CA du mois</div></div>
-  <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon orange"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></div><span class="kpi-trend trend-neutral">${invs.filter(i=>['envoyee','retard'].includes(i.statut)).length} en attente</span></div><div class="kpi-val">${FP.money(kpi.encours).replace(' €','')}<span style="font-size:1rem"> €</span></div><div class="kpi-label">Encours total</div></div>
-  <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon red"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div><span class="kpi-trend trend-down">${kpi.retardCount} facture(s)</span></div><div class="kpi-val red">${FP.money(kpi.retard).replace(' €','')}<span style="font-size:1rem"> €</span></div><div class="kpi-label">En retard</div></div>
-  <div class="kpi-card"><div class="kpi-top"><div class="kpi-icon green"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div><span class="kpi-trend trend-up">↑ IA activée</span></div><div class="kpi-val">${kpi.tauxRecouvrement}%</div><div class="kpi-label">Taux recouvrement</div></div>
+  <div class="kpi-card cf-coming">
+    <div class="kpi-top">
+      <div class="kpi-icon green"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
+      <span class="kpi-trend trend-neutral">${invs.filter(i=>['envoyee','retard'].includes(i.statut)).length} en attente</span>
+    </div>
+    <div class="kpi-val">${FP.money(kpi.encours).replace(' €','')}<span style="font-size:1rem"> €</span></div>
+    <div class="kpi-label">Trésorerie à venir</div>
+  </div>
+  <div class="kpi-card cf-late">
+    <div class="kpi-top">
+      <div class="kpi-icon red"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+      <span class="kpi-trend trend-down">${kpi.retardCount} facture(s)</span>
+    </div>
+    <div class="kpi-val red">${FP.money(kpi.retard).replace(' €','')}<span style="font-size:1rem"> €</span></div>
+    <div class="kpi-label">Impayés en retard</div>
+    ${kpi.retardCount > 0 ? `<a href="relances.html" style="display:inline-flex;align-items:center;gap:4px;margin-top:10px;font-size:.75rem;font-weight:700;color:var(--red);text-decoration:none">⚡ Relancer maintenant →</a>` : ''}
+  </div>
+  <div class="kpi-card" style="display:flex;align-items:center;gap:16px;padding:18px 20px">
+    <div class="donut-wrap">
+      <div class="donut-ring" style="--pct:${pct}%;--c:${donutColor}"></div>
+      <div class="donut-hole">${pct}%</div>
+    </div>
+    <div>
+      <div class="kpi-val" style="font-size:1.4rem">${pct}%</div>
+      <div class="kpi-label">Taux de recouvrement</div>
+      <div style="font-size:.72rem;margin-top:4px;color:${donutColor};font-weight:700">${pct>=80?'🟢 Excellent':pct>=50?'🟡 À améliorer':'🔴 Attention'}</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div class="kpi-icon navy"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+      <span class="kpi-trend trend-neutral">${invs.filter(i=>i.statut!=='brouillon').length} factures</span>
+    </div>
+    <div class="kpi-val">${FP.money(kpi.caMonth).replace(' €','')}<span style="font-size:1rem"> €</span></div>
+    <div class="kpi-label">CA du mois</div>
+  </div>
 `;
 
 // Invoice list
@@ -232,14 +267,58 @@ document.getElementById('inv-list').innerHTML = recent.map(inv => {
   </div>`;
 }).join('');
 
-// AI actions
-const overdues = invs.filter(i=>i.statut==='retard');
-document.getElementById('ai-sub').textContent = `${overdues.length} relance(s) à traiter`;
-document.getElementById('ai-list').innerHTML = overdues.length ? overdues.map(inv=>`
-  <div class="ai-item" onclick="window.location.href='relances.html?id=${inv.id}'">
-    <div class="ai-item-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-    <div><div class="ai-client">${inv.clientNom}</div><div class="ai-detail">Retard de ${FP.daysLate(inv.dateEcheance)} jours · ${inv.relances?.length||0} relance(s) envoyée(s)</div><div class="ai-amount">${FP.money(inv.montantTTC)}</div></div>
-  </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:.88rem">✓ Aucune relance en attente</div>';
+// Activité récente — timeline
+(function renderActivity() {
+  const allInvs = FP.getInvoices();
+  // Build timeline events from invoice data
+  const events = [];
+  allInvs.forEach(inv => {
+    if (inv.statut === 'payee') {
+      events.push({ type: 'paid', date: inv.dateEcheance || inv.dateEmission, inv });
+    } else if (inv.statut === 'retard') {
+      events.push({ type: 'overdue', date: inv.dateEcheance, inv });
+    } else if (inv.statut === 'envoyee') {
+      events.push({ type: 'sent', date: inv.dateEmission, inv });
+    }
+    (inv.relances || []).forEach(r => {
+      events.push({ type: 'relance', date: r.date, inv, relance: r });
+    });
+  });
+  events.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const recent = events.slice(0, 6);
+
+  const overdues = allInvs.filter(i => i.statut === 'retard');
+  document.getElementById('ai-sub').textContent = overdues.length
+    ? `${overdues.length} relance(s) en attente`
+    : 'Aucune relance en attente';
+
+  if (!recent.length) {
+    document.getElementById('ai-list').innerHTML =
+      '<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:.88rem">Aucune activité récente</div>';
+    return;
+  }
+
+  const iconMap = {
+    paid:    { cls:'green',  icon:'💸', label:'Paiement reçu' },
+    overdue: { cls:'red',    icon:'⚠️', label:'Facture en retard' },
+    sent:    { cls:'navy',   icon:'✉️', label:'Facture envoyée' },
+    relance: { cls:'orange', icon:'⚡', label:'Relance envoyée' },
+  };
+
+  document.getElementById('ai-list').innerHTML = `<div class="activity-timeline">${recent.map(ev => {
+    const m = iconMap[ev.type];
+    const href = ev.type === 'relance' ? `relances.html?id=${ev.inv.id}` : `factures.html?id=${ev.inv.id}`;
+    const amtColor = ev.type === 'paid' ? 'var(--green)' : ev.type === 'overdue' ? 'var(--red)' : 'var(--navy)';
+    return `<div class="act-item" onclick="window.location.href='${href}'">
+      <div class="act-dot ${m.cls}">${m.icon}</div>
+      <div class="act-body">
+        <div class="act-title">${ev.inv.clientNom}</div>
+        <div class="act-sub">${m.label} · ${FP.dateStr(ev.date)}</div>
+      </div>
+      <div class="act-amount" style="color:${amtColor}">${FP.money(ev.inv.montantTTC)}</div>
+    </div>`;
+  }).join('')}</div>`;
+})();
 
 
 // Chart — 6 derniers mois avec données réelles

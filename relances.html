@@ -191,7 +191,17 @@ function renderList() {
   else items = invs.filter(i=>(i.relances||[]).length>0);
 
   if (!items.length) {
-    document.getElementById('relance-list').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><h4>${currentTab==='retard'?'Aucune facture en retard ✓':'Aucune donnée'}</h4><p>${currentTab==='retard'?'Tout est à jour ! Vos relances IA ont bien fonctionné.':'Aucune facture dans cette catégorie.'}</p></div>`;
+    const es = currentTab === 'retard'
+      ? { emoji:'✅', title:'Tout est à jour !', desc:'Aucune facture en retard. Vos relances IA ont bien fonctionné. Profitez-en pour créer de nouvelles factures.', ctaHref:'factures.html', ctaLabel:'Voir mes factures' }
+      : currentTab === 'envoyee'
+        ? { emoji:'📬', title:'Aucune facture envoyée', desc:'Vos factures en cours d\'envoi apparaîtront ici.', ctaHref:'factures.html?new=1', ctaLabel:'Créer une facture' }
+        : { emoji:'📋', title:'Aucune relance dans l\'historique', desc:'L\'historique de toutes les relances envoyées apparaîtra ici.', ctaHref:'factures.html', ctaLabel:'Voir les factures' };
+    document.getElementById('relance-list').innerHTML = `<div class="empty-illustrated">
+      <div class="empty-emoji">${es.emoji}</div>
+      <div class="empty-title">${es.title}</div>
+      <div class="empty-desc">${es.desc}</div>
+      <div class="empty-actions"><a href="${es.ctaHref}" class="btn btn-primary">${es.ctaLabel}</a></div>
+    </div>`;
     return;
   }
 

@@ -84,9 +84,14 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Client <span class="req">*</span></label>
-          <select class="form-control" id="inv-client" onchange="fillClientData()">
-            <option value="">— Sélectionner un client —</option>
-          </select>
+          <div class="client-autocomplete">
+            <input class="form-control" id="inv-client-search" placeholder="Rechercher un client…" autocomplete="off"
+              oninput="searchClients(this.value)" onfocus="searchClients(this.value)"
+              onkeydown="acKeyNav(event)"/>
+            <button class="client-clear" id="inv-client-clear" type="button" onclick="clearClientSelection()" title="Effacer">✕</button>
+            <input type="hidden" id="inv-client"/>
+            <div class="client-dropdown" id="client-dropdown"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Numéro de facture</label>
@@ -271,14 +276,16 @@ function renderTable() {
         <button class="btn btn-danger btn-sm" onclick="delInv('${inv.id}')">🗑</button>
       </div></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="10"><div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
-  <div style="font-size:3rem;margin-bottom:16px">📄</div>
-  <div style="font-size:1.1rem;font-weight:700;color:var(--navy);margin-bottom:8px">Votre première facture en 30 secondes</div>
-  <div style="font-size:.88rem;margin-bottom:24px">Créez une facture professionnelle, envoyez-la par email et suivez son paiement en temps réel.</div>
-  <button class="btn btn-primary" onclick="openNew()">
-    <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-    Créer ma première facture
-  </button>
+  }).join('') : `<tr><td colspan="10"><div class="empty-illustrated">
+  <div class="empty-emoji">📄</div>
+  <div class="empty-title">Votre première facture en 30 secondes</div>
+  <div class="empty-desc">Créez une facture professionnelle conforme Factur-X, envoyez-la par email et suivez son paiement en temps réel.</div>
+  <div class="empty-actions">
+    <button class="btn btn-primary" onclick="openNew()">
+      <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Créer ma première facture
+    </button>
+    <a href="clients.html" class="btn btn-ghost">👤 Ajouter un client d'abord</a>
+  </div>
 </div></td></tr>`;
 }
 
@@ -292,10 +299,13 @@ function openNew() {
   const ec = new Date(); ec.setDate(ec.getDate() + 30);
   document.getElementById('inv-date-echeance').value = ec.toISOString().split('T')[0];
   document.getElementById('inv-client').value = '';
+  document.getElementById('inv-client-search').value = '';
+  document.getElementById('client-dropdown').classList.remove('open');
+  const clr = document.getElementById('inv-client-clear');
+  if (clr) clr.classList.remove('show');
   document.getElementById('inv-tva').value = '20';
   document.getElementById('inv-notes').value = '';
   document.getElementById('inv-statut').value = 'brouillon';
-  populateClients();
   renderLignes();
   FP.openModal('modal-invoice');
 }
@@ -324,20 +334,112 @@ function editInvoice(id) {
   FP.openModal('modal-invoice');
 }
 
-function populateClients(selectedId) {
-  const sel = document.getElementById('inv-client');
+// ─── Client Autocomplete ──────────────────────────────────────────────────────
+const AC_COLORS = ['#1B3A4B','#D4853B','#1A7A3D','#6b5ea8','#B8352A','#0891b2'];
+const acColor = (nom) => AC_COLORS[(nom||' ').charCodeAt(0) % AC_COLORS.length];
+const acInit  = (nom) => (nom||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+let _acFocusIdx = -1;
+
+function searchClients(q) {
   const clients = FP.getClients();
-  sel.innerHTML = '<option value="">— Sélectionner un client —</option>' +
-    clients.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.nom}</option>`).join('');
+  const query = (q || '').toLowerCase().trim();
+  const filtered = query
+    ? clients.filter(c => c.nom.toLowerCase().includes(query) || (c.email||'').toLowerCase().includes(query))
+    : clients;
+  renderClientDropdown(filtered);
+}
+
+function renderClientDropdown(clients) {
+  const dd = document.getElementById('client-dropdown');
+  _acFocusIdx = -1;
+  if (!clients.length) {
+    dd.innerHTML = `<div style="padding:12px 14px;font-size:.85rem;color:var(--text-muted)">Aucun client trouvé — <a href="clients.html" style="color:var(--orange);font-weight:600">Ajouter →</a></div>`;
+    dd.classList.add('open');
+    return;
+  }
+  dd.innerHTML = clients.map((c, i) => `
+    <button class="client-opt" type="button" data-id="${c.id}" data-nom="${(c.nom||'').replace(/"/g,'&quot;')}" onclick="selectClient('${c.id}')">
+      <div class="client-opt-avatar" style="background:${acColor(c.nom)}">${acInit(c.nom)}</div>
+      <div>
+        <div class="client-opt-name">${DOMPurify.sanitize(c.nom)}</div>
+        ${c.email ? `<div class="client-opt-email">${DOMPurify.sanitize(c.email)}</div>` : ''}
+      </div>
+    </button>`).join('');
+  dd.classList.add('open');
+}
+
+function selectClient(id) {
+  const client = FP.getClient(id);
+  if (!client) return;
+  document.getElementById('inv-client').value = id;
+  document.getElementById('inv-client-search').value = client.nom;
+  document.getElementById('client-dropdown').classList.remove('open');
+  const clr = document.getElementById('inv-client-clear');
+  if (clr) { clr.classList.add('show'); }
+  // Mettre à jour la date d'échéance selon le délai de paiement du client
+  const ec = new Date();
+  ec.setDate(ec.getDate() + (client.delaiPaiement || 30));
+  document.getElementById('inv-date-echeance').value = ec.toISOString().split('T')[0];
+}
+
+function clearClientSelection() {
+  document.getElementById('inv-client').value = '';
+  document.getElementById('inv-client-search').value = '';
+  document.getElementById('client-dropdown').classList.remove('open');
+  const clr = document.getElementById('inv-client-clear');
+  if (clr) clr.classList.remove('show');
+  document.getElementById('inv-client-search').focus();
+}
+
+function acKeyNav(e) {
+  const dd = document.getElementById('client-dropdown');
+  const opts = dd.querySelectorAll('.client-opt');
+  if (!opts.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _acFocusIdx = Math.min(_acFocusIdx + 1, opts.length - 1);
+    opts.forEach((o, i) => o.classList.toggle('focused', i === _acFocusIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _acFocusIdx = Math.max(_acFocusIdx - 1, 0);
+    opts.forEach((o, i) => o.classList.toggle('focused', i === _acFocusIdx));
+  } else if (e.key === 'Enter' && _acFocusIdx >= 0) {
+    e.preventDefault();
+    const focused = opts[_acFocusIdx];
+    if (focused) selectClient(focused.dataset.id);
+  } else if (e.key === 'Escape') {
+    dd.classList.remove('open');
+  }
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.client-autocomplete')) {
+    document.getElementById('client-dropdown')?.classList.remove('open');
+  }
+});
+
+function populateClients(selectedId) {
+  if (selectedId) {
+    // Pre-fill the autocomplete with the selected client
+    const client = FP.getClient(selectedId);
+    if (client) {
+      document.getElementById('inv-client').value = selectedId;
+      document.getElementById('inv-client-search').value = client.nom;
+      const clr = document.getElementById('inv-client-clear');
+      if (clr) clr.classList.add('show');
+    }
+  }
 }
 
 function fillClientData() {
+  // Kept for backward compat — now handled inside selectClient()
   const cid = document.getElementById('inv-client').value;
   if (!cid) return;
   const client = FP.getClient(cid);
   if (!client) return;
   const ec = new Date();
-  ec.setDate(ec.getDate() + (client.delaiPaiement||30));
+  ec.setDate(ec.getDate() + (client.delaiPaiement || 30));
   document.getElementById('inv-date-echeance').value = ec.toISOString().split('T')[0];
 }
 

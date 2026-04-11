@@ -196,6 +196,13 @@ FP.renderSidebar('clients');
 let view = 'grid';
 let editingId = null;
 
+// Ouverture auto depuis Quick Actions sidebar
+if (localStorage.getItem('fp_open_new_client') === '1') {
+  localStorage.removeItem('fp_open_new_client');
+  document.addEventListener('DOMContentLoaded', () => {}, { once: true });
+  setTimeout(() => openNew(), 400);
+}
+
 const colors = ['#1B3A4B','#D4853B','#1A7A3D','#6b5ea8','#B8352A','#0891b2'];
 const getColor = (nom) => colors[nom.charCodeAt(0)%colors.length];
 const initials = (nom) => nom.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -243,18 +250,17 @@ function render() {
           <div class="risque-bar" style="background:${risqueColor};opacity:.3;width:${Math.min(100,tot/500)}%"></div>
         </div>`;
       }).join('') :
-      `<div style="text-align:center;padding:60px 20px;color:var(--text-muted);grid-column:1/-1">
-  <div style="font-size:3rem;margin-bottom:16px">👥</div>
-  <div style="font-size:1.1rem;font-weight:700;color:var(--navy);margin-bottom:8px">Ajoutez votre premier client</div>
-  <div style="font-size:.88rem;margin-bottom:24px">Gérez vos clients, suivez les risques de paiement et importez votre base existante en CSV.</div>
-  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      `<div style="grid-column:1/-1"><div class="empty-illustrated">
+  <div class="empty-emoji">👥</div>
+  <div class="empty-title">Votre portefeuille client vous attend</div>
+  <div class="empty-desc">Ajoutez vos clients pour commencer à facturer, suivre les risques de paiement et analyser votre activité.</div>
+  <div class="empty-actions">
     <button class="btn btn-primary" onclick="openNew()">
-      <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      Ajouter un client
+      <svg viewBox="0 0 24 24" fill="white" width="15" height="15"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Ajouter un client
     </button>
     <button class="btn btn-ghost" onclick="openCSVImport()">📥 Importer CSV</button>
   </div>
-</div>`;
+</div></div>`;
   } else {
     document.getElementById('clients-tbody').innerHTML = clients.map(c=>{
       const enc = getClientEncours(c.id);
