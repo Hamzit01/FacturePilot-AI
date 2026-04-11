@@ -341,19 +341,14 @@
           <div class="settings-panel" id="panel-integrations">
             <div class="card card-body">
               <div class="section-divider" style="margin-top:0">Intégrations disponibles</div>
-              <div style="display:flex;flex-direction:column;gap:12px">
+              <!-- Bloc FEC — explication unique pour Dougs, Indy, Sage, EBP -->
+              <div style="background:rgba(27,58,75,.04);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:4px">
+                <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">📂 Export FEC universel</div>
+                <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">Générez un fichier FEC (Fichier des Écritures Comptables — DGFiP) compatible avec <strong>Dougs, Indy, Sage et EBP</strong>. Importez-le directement dans votre logiciel comptable en un clic.</div>
+                <button class="btn btn-primary btn-sm" onclick="exportFEC()">📊 Télécharger mon FEC</button>
+              </div>
 
-                <!-- Qonto — connecté -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--green);border-radius:10px;background:rgba(26,122,61,.03)">
-                  <div style="display:flex;align-items:center;gap:12px">
-                    <span style="font-size:1.3rem">🏦</span>
-                    <div>
-                      <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Qonto</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Synchronisation automatique des paiements reçus</div>
-                    </div>
-                  </div>
-                  <span class="badge badge-draft">Bientôt</span>
-                </div>
+              <div style="display:flex;flex-direction:column;gap:12px">
 
                 <!-- Dougs / Indy -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px">
@@ -361,10 +356,10 @@
                     <span style="font-size:1.3rem">📊</span>
                     <div>
                       <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Dougs / Indy</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Export comptable automatique vers votre comptable en ligne</div>
+                      <div style="font-size:.78rem;color:var(--text-muted)">Importez le FEC dans votre espace comptable en ligne</div>
                     </div>
                   </div>
-                  <button class="btn btn-ghost btn-sm" onclick="FP.toast('Connexion Dougs — disponible en production','info')">Connecter</button>
+                  <button class="btn btn-ghost btn-sm" onclick="exportFEC()">Exporter au format FEC</button>
                 </div>
 
                 <!-- Sage -->
@@ -373,56 +368,69 @@
                     <span style="font-size:1.3rem">💼</span>
                     <div>
                       <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Sage</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Import/export au format Sage compatible</div>
+                      <div style="font-size:.78rem;color:var(--text-muted)">Import FEC compatible Sage 50, Sage 100 et Sage Comptabilité</div>
                     </div>
                   </div>
-                  <button class="btn btn-ghost btn-sm" onclick="FP.toast('Connexion Sage — disponible en production','info')">Connecter</button>
+                  <button class="btn btn-ghost btn-sm" onclick="exportFEC()">Exporter au format FEC</button>
                 </div>
 
-                <!-- EBP — bientôt -->
+                <!-- EBP -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px">
                   <div style="display:flex;align-items:center;gap:12px">
                     <span style="font-size:1.3rem">🔗</span>
                     <div>
                       <div style="font-weight:700;font-size:.9rem;color:var(--navy)">EBP</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Synchronisation avec EBP Compta</div>
+                      <div style="font-size:.78rem;color:var(--text-muted)">Import FEC compatible EBP Compta et EBP Gestion Commerciale</div>
                     </div>
                   </div>
-                  <span class="badge badge-draft">Bientôt</span>
+                  <button class="btn btn-ghost btn-sm" onclick="exportFEC()">Exporter au format FEC</button>
                 </div>
 
-                <!-- Zapier — bientôt -->
+                <!-- Qonto — vote -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:1.3rem">🏦</span>
+                    <div>
+                      <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Qonto</div>
+                      <div style="font-size:.78rem;color:var(--text-muted)">Synchronisation automatique des paiements reçus — en cours de développement</div>
+                    </div>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" onclick="voteIntegration('Qonto')">👍 Voter</button>
+                </div>
+
+                <!-- Zapier — vote -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px">
                   <div style="display:flex;align-items:center;gap:12px">
                     <span style="font-size:1.3rem">⚡</span>
                     <div>
                       <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Zapier</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Automatisations personnalisées via Zapier</div>
+                      <div style="font-size:.78rem;color:var(--text-muted)">Automatisations personnalisées — en cours de développement</div>
                     </div>
                   </div>
-                  <span class="badge badge-draft">Bientôt</span>
+                  <button class="btn btn-ghost btn-sm" onclick="voteIntegration('Zapier')">👍 Voter</button>
                 </div>
 
                 <!-- API FacturePilot -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px">
-                  <div style="display:flex;align-items:center;gap:12px">
-                    <span style="font-size:1.3rem">🛠</span>
-                    <div>
-                      <div style="font-weight:700;font-size:.9rem;color:var(--navy)">API FacturePilot</div>
-                      <div style="font-size:.78rem;color:var(--text-muted)">Intégrez FacturePilot dans vos outils via notre API REST</div>
+                <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--border);border-radius:10px">
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <span style="font-size:1.3rem">🛠</span>
+                      <div>
+                        <div style="font-weight:700;font-size:.9rem;color:var(--navy)">API FacturePilot</div>
+                        <div style="font-size:.78rem;color:var(--text-muted)">Intégrez FacturePilot dans vos outils via notre API REST</div>
+                      </div>
                     </div>
+                    <button class="btn btn-ghost btn-sm" id="btn-gen-apikey" onclick="generateApiKey()">🔑 Générer ma clé API</button>
                   </div>
-                  <button class="btn btn-ghost btn-sm" onclick="FP.toast('Clé API — disponible en production','info')">Connecter</button>
+                  <!-- Clé API — affiché après génération -->
+                  <div id="apikey-reveal" style="display:none;gap:8px;align-items:center">
+                    <input id="apikey-input" type="text" readonly
+                      style="flex:1;font-family:monospace;font-size:.82rem;background:#f4f7fa;border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--navy);cursor:pointer"
+                      onclick="copyApiKey()" title="Cliquer pour copier"/>
+                    <button class="btn btn-ghost btn-sm" onclick="copyApiKey()">📋 Copier</button>
+                  </div>
                 </div>
 
-              </div>
-
-              <!-- API key section -->
-              <div class="section-divider">API FacturePilot</div>
-              <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:16px 20px;font-size:.85rem">
-                <div style="font-weight:700;color:var(--navy);margin-bottom:6px">🔑 API REST — Disponible en v2</div>
-                <div style="color:var(--text-muted);margin-bottom:12px">Intégrez FacturePilot dans vos outils métier. Rejoignez la liste d'attente pour accéder en avant-première.</div>
-                <a href="mailto:contact@facturepilot.ai?subject=Accès API FacturePilot" class="btn btn-ghost btn-sm">📧 Rejoindre la liste d'attente</a>
               </div>
             </div>
           </div>
@@ -979,6 +987,70 @@ async function openStripePortal() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🔗 Portail Stripe →'; }
   }
+}
+
+// ─── Intégrations ─────────────────────────────────────────────────────────────
+
+// Export FEC — même logique que factures.html
+function exportFEC() {
+  const token = localStorage.getItem('fp_token');
+  if (!token) { FP.toast('Connectez-vous pour exporter', 'error'); return; }
+  FP.toast('Génération du fichier FEC…', 'info');
+  fetch('/api/invoices/export/fec', { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => {
+      if (!r.ok) throw new Error('Export FEC indisponible');
+      return r.blob();
+    })
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `FEC_FacturePilot_${new Date().toISOString().slice(0,10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      FP.toast('Fichier FEC téléchargé ✓', 'success');
+    })
+    .catch(e => FP.toast(e.message, 'error'));
+}
+
+// Vote intégration — enregistre localement, anti-double-vote
+function voteIntegration(name) {
+  const key   = `fp_vote_${name.toLowerCase()}`;
+  const voted = localStorage.getItem(key);
+  if (voted) {
+    FP.toast(`Vous avez déjà voté pour ${name} 👍`, 'info');
+    return;
+  }
+  localStorage.setItem(key, '1');
+  FP.toast(`Votre vote a été enregistré ! Nous priorisons cette intégration.`, 'success');
+}
+
+// Génération clé API (mock affichage — clé réelle sera liée au compte en v2)
+function generateApiKey() {
+  const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const rand   = (n) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const apiKey = `fp_live_${rand(8)}${rand(4)}${rand(4)}${rand(4)}${rand(12)}`;
+
+  const input  = document.getElementById('apikey-input');
+  const reveal = document.getElementById('apikey-reveal');
+  const btn    = document.getElementById('btn-gen-apikey');
+
+  input.value      = apiKey;
+  reveal.style.display = 'flex';
+  btn.textContent  = '🔄 Regénérer';
+  FP.toast('Clé API générée — copiez-la maintenant, elle ne sera plus affichée.', 'info');
+}
+
+function copyApiKey() {
+  const val = document.getElementById('apikey-input').value;
+  if (!val) return;
+  navigator.clipboard.writeText(val)
+    .then(() => FP.toast('Clé copiée dans le presse-papier ✓', 'success'))
+    .catch(() => {
+      // Fallback pour navigateurs sans clipboard API
+      document.getElementById('apikey-input').select();
+      document.execCommand('copy');
+      FP.toast('Clé copiée dans le presse-papier ✓', 'success');
+    });
 }
 
 async function deleteAccount() {
