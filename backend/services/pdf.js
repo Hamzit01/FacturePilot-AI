@@ -1,5 +1,6 @@
 'use strict';
 const PDFDocument = require('pdfkit');
+const { decrypt }  = require('./crypto');
 
 function generateInvoicePDF(inv, user) {
   return new Promise((resolve, reject) => {
@@ -95,13 +96,16 @@ function generateInvoicePDF(inv, user) {
        .text('TOTAL TTC', 360, totY + 50).text(fmt(inv.montant_ttc), 400, totY + 50, { width: 140, align: 'right' });
 
     // ── IBAN ────────────────────────────────────────────────────────────────
-    if (user.iban) {
+    // user.iban/bic sont chiffrés en DB (AES-256-GCM) — déchiffrement avant affichage
+    const ibanClear = user.iban ? decrypt(user.iban) : '';
+    const bicClear  = user.bic  ? decrypt(user.bic)  : '';
+    if (ibanClear) {
       const ibanY = totY + 90;
       doc.rect(50, ibanY, 495, 40).fill('#f4f7fa');
       doc.fillColor('#333').fontSize(9).font('Helvetica-Bold')
          .text('Règlement par virement bancaire :', 60, ibanY + 8);
-      doc.font('Helvetica').text(`IBAN : ${user.iban}`, 60, ibanY + 22);
-      if (user.bic) doc.text(`BIC : ${user.bic}`, 300, ibanY + 22);
+      doc.font('Helvetica').text(`IBAN : ${ibanClear}`, 60, ibanY + 22);
+      if (bicClear) doc.text(`BIC : ${bicClear}`, 300, ibanY + 22);
     }
 
     // ── Pied de page ────────────────────────────────────────────────────────

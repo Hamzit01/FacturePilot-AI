@@ -5,9 +5,15 @@
  */
 const { PDFDocument, PDFName, PDFString, PDFDict, PDFArray, PDFRawStream, decodePDFRawStream } = require('pdf-lib');
 const { create } = require('xmlbuilder2');
+const { decrypt } = require('./crypto');
 
 // ── XML Factur-X EN 16931 (Basic) ────────────────────────────────────────────
 function buildFacturXML(inv, user, client) {
+  // Déchiffrer IBAN/BIC stockés AES-256-GCM en DB
+  const ibanClear = user.iban ? decrypt(user.iban) : '';
+  const bicClear  = user.bic  ? decrypt(user.bic)  : '';
+  // Proxy pour que le reste de la fonction utilise les valeurs en clair
+  user = { ...user, iban: ibanClear, bic: bicClear };
   const ht      = Number(inv.montant_ht  || 0);
   const ttc     = Number(inv.montant_ttc || 0);
   const tvaRate = Number(inv.tva || 20);

@@ -132,8 +132,16 @@
                 <div class="form-group"><label class="form-label">Téléphone</label><input class="form-control" id="s-tel"/></div>
               </div>
               <div class="section-divider">Informations bancaires</div>
-              <div class="form-group"><label class="form-label">IBAN <span style="font-size:.75rem;color:var(--text-muted)">(affiché sur les factures)</span></label><input class="form-control" id="s-iban" placeholder="FR76 3000 6000 …"/></div>
-              <div class="form-group"><label class="form-label">BIC/SWIFT</label><input class="form-control" id="s-bic" placeholder="BNPAFRPP"/></div>
+              <div class="form-group">
+                <label class="form-label">IBAN <span style="font-size:.75rem;color:var(--text-muted)">(affiché sur les factures)</span></label>
+                <input class="form-control" id="s-iban" placeholder="FR76 3000 6000 …" autocomplete="off"/>
+                <div id="iban-hint" style="display:none;margin-top:4px;font-size:.78rem;color:var(--text-muted)">🔒 IBAN enregistré — saisissez un nouveau pour modifier, ou laissez vide pour conserver</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">BIC/SWIFT</label>
+                <input class="form-control" id="s-bic" placeholder="BNPAFRPP" autocomplete="off"/>
+                <div id="bic-hint" style="display:none;margin-top:4px;font-size:.78rem;color:var(--text-muted)">🔒 BIC enregistré</div>
+              </div>
 
               <!-- WIDGET COMPLETION PROFIL -->
               <div style="margin-top:24px;padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--bg-light)">
@@ -400,8 +408,12 @@ function loadData(u) {
   document.getElementById('s-adresse').value = u.adresse||'';
   document.getElementById('s-email').value = u.email||'';
   document.getElementById('s-tel').value = u.tel||'';
-  document.getElementById('s-iban').value = u.iban||'';
-  document.getElementById('s-bic').value = u.bic||'';
+  // IBAN/BIC ne sont jamais retournés par l'API (chiffrés en DB)
+  // On affiche un hint si une valeur est enregistrée, sans l'exposer
+  document.getElementById('s-iban').value = '';
+  document.getElementById('s-bic').value  = '';
+  document.getElementById('iban-hint').style.display = u.has_iban ? 'block' : 'none';
+  document.getElementById('bic-hint').style.display  = u.has_bic  ? 'block' : 'none';
   document.getElementById('avatar-name').textContent = `${u.prenom||''} ${u.nom||''}`.trim() || '—';
   document.getElementById('preview-company').textContent = u.entreprise||'Mon entreprise';
   document.getElementById('preview-addr').textContent = u.adresse||'Adresse';
@@ -658,8 +670,14 @@ async function saveAll() {
     adresse:       document.getElementById('s-adresse').value.trim(),
     email:         document.getElementById('s-email').value.trim(),
     tel:           document.getElementById('s-tel').value.trim(),
-    iban:          document.getElementById('s-iban').value.trim(),
-    bic:           document.getElementById('s-bic').value.trim(),
+    // N'envoyer IBAN/BIC que si l'utilisateur a saisi une nouvelle valeur
+    // Si vide + valeur existante → undefined = le backend garde l'ancienne (PUT /api/me)
+    ...(document.getElementById('s-iban').value.trim()
+        ? { iban: document.getElementById('s-iban').value.trim() }
+        : (FP.getUser()?.has_iban ? {} : { iban: '' })),
+    ...(document.getElementById('s-bic').value.trim()
+        ? { bic: document.getElementById('s-bic').value.trim() }
+        : (FP.getUser()?.has_bic  ? {} : { bic: '' })),
     couleurFacture: color,
     logo:          FP.getUser().logo || null,  // preserve existing logo
   };
@@ -857,7 +875,8 @@ function calcProfileScore() {
     { id: 's-entreprise', label: 'Entreprise', pts: 15 },
     { id: 's-siren',      label: 'SIREN',      pts: 15 },
     { id: 's-tva',        label: 'TVA',         pts: 15 },
-    { id: 's-iban',       label: 'IBAN',        pts: 20 },
+    // IBAN : jamais dans le champ (chiffré en DB) → vérifier has_iban depuis les données user
+    // { id: 's-iban', label: 'IBAN', pts: 20 }, // remplacé ci-dessous
     { id: 's-adresse',    label: 'Adresse',     pts: 10 },
     { id: 's-tel',        label: 'Téléphone',   pts: 5  },
     { id: 's-email',      label: 'Email',       pts: 5  },
@@ -869,6 +888,9 @@ function calcProfileScore() {
     if (el && el.value.trim()) { score += f.pts; }
     else { missing.push(f.label); }
   });
+  // IBAN — jamais dans l'input (chiffré en DB) → has_iban depuis les données user
+  if (u.has_iban || document.getElementById('s-iban')?.value.trim()) { score += 20; }
+  else { missing.push('IBAN'); }
   // Logo — read from user data (not an input field)
   const hasLogo = !!(u.logo);
   if (hasLogo) { score += 15; }

@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { decrypt } = require('../services/crypto');
 
 const router = express.Router();
 
@@ -374,7 +375,10 @@ router.post('/:id/send-email', auth, async (req, res) => {
                date_echeance: inv.date_echeance, client_nom: inv.client_nom, lignes: inv.lignes },
         user: { prenom: user.prenom, nom: user.nom, entreprise: user.entreprise,
                 adresse: user.adresse, siren: user.siren, tva_num: user.tva_num,
-                iban: user.iban, tel: user.tel, email: user.email,
+                // IBAN déchiffré dans le snapshot — jamais de valeur chiffrée en clair dans le JSON
+                iban: user.iban ? decrypt(user.iban) : '',
+                bic: user.bic ? decrypt(user.bic) : '',
+                tel: user.tel, email: user.email,
                 couleur_facture: user.couleur_facture },
         sentAt: new Date().toISOString(),
       };
@@ -383,6 +387,10 @@ router.post('/:id/send-email', auth, async (req, res) => {
     } catch(pdfErr) {
       console.error('[PDF]', pdfErr.message);
     }
+
+    // Déchiffrer IBAN/BIC (stockés AES-256-GCM en DB)
+    const ibanClear = user.iban ? decrypt(user.iban) : '';
+    const bicClear  = user.bic  ? decrypt(user.bic)  : '';
 
     const montantHT  = Number(inv.montant_ht).toLocaleString('fr-FR', { minimumFractionDigits:2 });
     const montantTTC = Number(inv.montant_ttc).toLocaleString('fr-FR', { minimumFractionDigits:2 });
@@ -411,7 +419,7 @@ router.post('/:id/send-email', auth, async (req, res) => {
                 <span>Total TTC</span><span>${montantTTC} €</span>
               </div>
             </div>
-            ${user.iban ? `<p style="color:#6b7280;font-size:.88rem">Paiement par virement : IBAN <strong>${user.iban}</strong></p>` : ''}
+            ${ibanClear ? `<p style="color:#6b7280;font-size:.88rem">Paiement par virement : IBAN <strong>${ibanClear}</strong>${bicClear ? ` — BIC <strong>${bicClear}</strong>` : ''}</p>` : ''}
             <p style="color:#374151;margin-top:20px">Cordialement,<br/><strong>${user.prenom} ${user.nom}</strong><br/><span style="color:#6b7280">${user.entreprise}</span>${user.tel ? `<br/><span style="color:#6b7280">${user.tel}</span>` : ''}</p>
             <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
             <p style="font-size:.78rem;color:#9ca3af;text-align:center">✓ Facture au format Factur-X conforme réforme 2026 · Généré par FacturePilot AI</p>
@@ -419,7 +427,7 @@ router.post('/:id/send-email', auth, async (req, res) => {
           </div>
         </div>
       `,
-      text: `Facture ${inv.numero} — ${user.entreprise}\n\nMontant TTC : ${montantTTC} €\nÀ régler avant le ${dateEch}\n${user.iban ? `Virement IBAN : ${user.iban}` : ''}`,
+      text: `Facture ${inv.numero} — ${user.entreprise}\n\nMontant TTC : ${montantTTC} €\nÀ régler avant le ${dateEch}\n${ibanClear ? `Virement IBAN : ${ibanClear}${bicClear ? ` — BIC : ${bicClear}` : ''}` : ''}`,
       attachments: pdfBuffer ? [{
         filename: `${inv.numero}.pdf`,
         content: pdfBuffer,
