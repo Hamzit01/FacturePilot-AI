@@ -1,6 +1,6 @@
 'use strict';
 /**
- * GET /api/cron/relances — appelé par Vercel Cron Jobs (vercel.json : "*/1 8 * * *")
+ * GET /api/cron/relances — appelé par Vercel Cron Jobs (vercel.json schedule: "0 8 * * *")
  * Protégé par requireCronSecret (Authorization: Bearer CRON_SECRET)
  *
  * Logique :
