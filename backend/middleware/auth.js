@@ -1,10 +1,12 @@
 'use strict';
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
+
+// Fail-closed — fallback aléatoire = tous les tokens invalides après cold start
 if (!process.env.JWT_SECRET) {
-  console.error('[AUTH] ERREUR CRITIQUE : JWT_SECRET non défini dans les variables d\'environnement !');
+  throw new Error('[FATAL] JWT_SECRET is missing from environment variables');
 }
-const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = (req, res, next) => {
   const header = req.headers.authorization || '';

@@ -45,18 +45,15 @@ input:focus{border-color:var(--orange)}
   </div>
   <h2>Bienvenue</h2>
   <p class="sub">Connectez-vous à votre espace FacturePilot AI</p>
-  <div class="demo-box">
-    <strong>Accès démo :</strong> hamza@facturepilot.ai / demo1234
-  </div>
   <div class="error-msg" id="error-msg"></div>
   <form id="login-form">
     <div class="form-group">
       <label>Adresse email</label>
-      <input type="email" id="email" placeholder="vous@entreprise.fr" value="hamza@facturepilot.ai" required/>
+      <input type="email" id="email" placeholder="vous@entreprise.fr" required autocomplete="email"/>
     </div>
     <div class="form-group">
       <label>Mot de passe</label>
-      <input type="password" id="password" placeholder="••••••••" value="demo1234" required/>
+      <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password"/>
     </div>
     <button type="submit" class="btn" id="login-btn">Se connecter →</button>
   </form>

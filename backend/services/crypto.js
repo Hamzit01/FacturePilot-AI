@@ -1,10 +1,14 @@
 'use strict';
 const crypto = require('crypto');
 
-const KEY = Buffer.from(
-  process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 64),
-  'hex'
-);
+// Fail-closed — pas de fallback aléatoire (new key on each cold start = IBAN illisibles)
+if (!process.env.ENCRYPTION_KEY) {
+  throw new Error('[FATAL] ENCRYPTION_KEY is missing from environment variables');
+}
+if (process.env.ENCRYPTION_KEY.length !== 64) {
+  throw new Error('[FATAL] ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)');
+}
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 const ALG = 'aes-256-gcm';
 
 function encrypt(text) {

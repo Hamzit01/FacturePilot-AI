@@ -21,8 +21,12 @@ const requireCronSecret = (req, res, next) => {
     return res.status(503).json({ error: 'Cron non configuré' });
   }
 
+  // Header Authorization: Bearer UNIQUEMENT — query params visibles dans les logs
   const authHeader = req.headers['authorization'] || '';
-  const provided   = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Non autorisé' });
+  }
+  const provided = authHeader.slice(7).trim();
 
   // timingSafeEqual requiert des buffers de même longueur
   const a = Buffer.alloc(64, 0);

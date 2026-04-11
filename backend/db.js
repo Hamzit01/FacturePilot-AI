@@ -30,14 +30,23 @@ const pool = new Pool({
 
 // ─── SEED: create demo user + data if DB is empty ────────────────────────────
 async function seedDemo() {
-  const hash = bcrypt.hashSync('demo1234', 10);
+  // Jamais en production — évite d'injecter des données fictives sur une DB vierge prod
+  if (process.env.NODE_ENV === 'production' || process.env.SKIP_SEED === 'true') {
+    console.log('[DB] Seed ignoré (production ou SKIP_SEED=true)');
+    return;
+  }
+  const email = process.env.DEMO_EMAIL || 'demo@facturepilot.local';
+  const pass  = process.env.DEMO_PASSWORD || 'demo1234';
+  const hash  = bcrypt.hashSync(pass, 10);
   const { rows: [u] } = await pool.query(`
-    INSERT INTO users (prenom,nom,email,password_hash,entreprise,siren,tva_num,adresse,tel,iban,plan,couleur_facture)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id
-  `, ['Hamza','Hadjadj','hamza@facturepilot.ai',hash,
-      'FacturePilot AI','123456789','FR12123456789',
+    INSERT INTO users (prenom,nom,email,password_hash,entreprise,siren,tva_num,adresse,tel,plan,couleur_facture)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id
+    ON CONFLICT (email) DO NOTHING
+  `, ['Demo','User', email, hash,
+      'FacturePilot Demo','123456789','FR12123456789',
       '12 rue de la Libération, 52100 Saint-Dizier',
-      '06 00 00 00 00','FR76 3000 6000 0112 3456 7890 189','pro','#1B3A4B']);
+      '06 00 00 00 00','pro','#1B3A4B']);
+  if (!u) return; // Email already exists
   const uid = u.id;
 
   const clientsData = [
@@ -193,76 +202,91 @@ async function initDB() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_relances_inv  ON relances(invoice_id)');
 
-  // Migration : ajout colonne invoice_snapshot (snapshot JSON figé à l'envoi)
+  // ── Gestionnaire de migrations versionné ─────────────────────────────────
+  // Exécute uniquement les migrations manquantes → cold start < 500ms après la v1
   await pool.query(`
-    ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_snapshot JSONB DEFAULT NULL
-  `).catch(() => {});
-
-  // Migration REAL → NUMERIC pour éviter les erreurs de virgule flottante sur les montants
-  await pool.query(`
-    ALTER TABLE invoices
-      ALTER COLUMN montant_ht  TYPE NUMERIC(12,2) USING montant_ht::NUMERIC(12,2),
-      ALTER COLUMN tva         TYPE NUMERIC(5,2)  USING tva::NUMERIC(5,2),
-      ALTER COLUMN montant_ttc TYPE NUMERIC(12,2) USING montant_ttc::NUMERIC(12,2)
-  `).catch(() => {}); // Idempotent — ignore si déjà fait
-
-  // Table audit log
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS audit_log (
-      id          SERIAL PRIMARY KEY,
-      user_id     INTEGER NOT NULL,
-      action      TEXT    NOT NULL,
-      entity      TEXT    NOT NULL,
-      entity_id   INTEGER,
-      payload     JSONB,
-      ip          TEXT    DEFAULT '',
-      created_at  TIMESTAMPTZ DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS schema_version (
+      version     INTEGER PRIMARY KEY,
+      applied_at  TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at DESC)');
+  const { rows: [vRow] } = await pool.query('SELECT COALESCE(MAX(version), 0) AS v FROM schema_version');
+  const currentVersion = parseInt(vRow.v, 10);
 
-  // Index unique sur (user_id, numero) pour empêcher les doublons de numéro de facture
-  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_numero ON invoices(user_id, numero)');
+  // ── Migration 001 : snapshot + NUMERIC + audit + password_resets ──────────
+  if (currentVersion < 1) {
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_snapshot JSONB DEFAULT NULL`).catch(() => {});
+    await pool.query(`
+      ALTER TABLE invoices
+        ALTER COLUMN montant_ht  TYPE NUMERIC(12,2) USING montant_ht::NUMERIC(12,2),
+        ALTER COLUMN tva         TYPE NUMERIC(5,2)  USING tva::NUMERIC(5,2),
+        ALTER COLUMN montant_ttc TYPE NUMERIC(12,2) USING montant_ttc::NUMERIC(12,2)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL,
+        action      TEXT    NOT NULL,
+        entity      TEXT    NOT NULL,
+        entity_id   INTEGER,
+        payload     JSONB,
+        ip          TEXT    DEFAULT '',
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at DESC)').catch(() => {});
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_numero ON invoices(user_id, numero)').catch(() => {});
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id         SERIAL PRIMARY KEY,
+        email      TEXT NOT NULL,
+        code       TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used       BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_pwd_reset_email ON password_resets(email, expires_at DESC)').catch(() => {});
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION cleanup_expired_resets() RETURNS void AS $$
+      BEGIN DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL '1 hour'; END;
+      $$ LANGUAGE plpgsql
+    `).catch(() => {});
+    await pool.query(`INSERT INTO schema_version (version) VALUES (1) ON CONFLICT DO NOTHING`);
+    console.log('[DB] Migration 001 appliquée');
+  }
 
-  // Table password_resets (persistent sur PostgreSQL — résout le problème in-memory Vercel)
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS password_resets (
-      id         SERIAL PRIMARY KEY,
-      email      TEXT NOT NULL,
-      code       TEXT NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      used       BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_pwd_reset_email ON password_resets(email, expires_at DESC)');
-  // Nettoyage automatique des tokens expirés (idempotent)
-  await pool.query(`
-    CREATE OR REPLACE FUNCTION cleanup_expired_resets() RETURNS void AS $$
-    BEGIN DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL '1 hour'; END;
-    $$ LANGUAGE plpgsql
-  `).catch(() => {});
+  // ── Migration 002 : stripe_customer column ────────────────────────────────
+  if (currentVersion < 2) {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer TEXT DEFAULT NULL`).catch(() => {});
+    await pool.query(`INSERT INTO schema_version (version) VALUES (2) ON CONFLICT DO NOTHING`);
+    console.log('[DB] Migration 002 appliquée');
+  }
 
   // ── Migration 003 : cycle de vie PDP (réforme 2026) ──────────────────────
-  await pool.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pdp_status') THEN
-        CREATE TYPE pdp_status AS ENUM ('deposee','rejetee','refusee','approuvee','encaissee');
-      END IF;
-    END;
-    $$
-  `).catch(() => {});
-  await pool.query(`
-    ALTER TABLE invoices
-      ADD COLUMN IF NOT EXISTS pdp_status  pdp_status  DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS pdp_sent_at TIMESTAMPTZ DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS pdp_ref     TEXT        DEFAULT NULL
-  `).catch(() => {});
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_invoices_pdp_status
-      ON invoices(user_id, pdp_status) WHERE pdp_status IS NOT NULL
-  `).catch(() => {});
+  if (currentVersion < 3) {
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pdp_status') THEN
+          CREATE TYPE pdp_status AS ENUM ('deposee','rejetee','refusee','approuvee','encaissee');
+        END IF;
+      END;
+      $$
+    `).catch(() => {});
+    await pool.query(`
+      ALTER TABLE invoices
+        ADD COLUMN IF NOT EXISTS pdp_status  pdp_status  DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS pdp_sent_at TIMESTAMPTZ DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS pdp_ref     TEXT        DEFAULT NULL
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoices_pdp_status
+        ON invoices(user_id, pdp_status) WHERE pdp_status IS NOT NULL
+    `).catch(() => {});
+    await pool.query(`INSERT INTO schema_version (version) VALUES (3) ON CONFLICT DO NOTHING`);
+    console.log('[DB] Migration 003 appliquée (PDP statuses)');
+  }
 
   // Seed si la table users est vide
   const { rows } = await pool.query('SELECT COUNT(*) as n FROM users');

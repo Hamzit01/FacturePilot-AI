@@ -8,10 +8,14 @@ const { encrypt, decrypt } = require('../services/crypto');
 
 const router = express.Router();
 
+// IBAN/BIC jamais retournés au frontend — exposition potentielle via localStorage/DevTools
+// Le frontend reçoit uniquement un booléen has_iban / has_bic
 const sanitize = (u) => ({
   id: u.id, prenom: u.prenom, nom: u.nom, email: u.email,
   entreprise: u.entreprise, siren: u.siren, tva: u.tva_num,
-  adresse: u.adresse, tel: u.tel, iban: decrypt(u.iban), bic: decrypt(u.bic),
+  adresse: u.adresse, tel: u.tel,
+  has_iban: Boolean(u.iban && u.iban.includes(':')), // chiffré en DB = présent
+  has_bic:  Boolean(u.bic  && u.bic.includes(':')),
   plan: u.plan, couleurFacture: u.couleur_facture, logo: u.logo,
   createdAt: u.created_at instanceof Date ? u.created_at.toISOString() : u.created_at,
 });

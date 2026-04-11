@@ -19,90 +19,134 @@ function buildFacturXML(inv, user, client) {
   try { lignes = inv.lignes ? JSON.parse(inv.lignes) : null; } catch { lignes = null; }
   if (!lignes?.length) lignes = [{ description: inv.objet || 'Prestation', qte: 1, prixHT: ht }];
 
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  const root = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('rsm:CrossIndustryInvoice', {
       'xmlns:rsm': 'urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100',
       'xmlns:ram': 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100',
       'xmlns:udt': 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100',
-    })
-      .ele('rsm:ExchangedDocumentContext')
+    });
+
+  // ── En-tête ────────────────────────────────────────────────────────────────
+  root.ele('rsm:ExchangedDocumentContext')
         .ele('ram:GuidelineSpecifiedDocumentContextParameter')
           .ele('ram:ID').txt('urn:factur-x.eu:1p0:en16931').up()
         .up()
-      .up()
-      .ele('rsm:ExchangedDocument')
+      .up();
+
+  root.ele('rsm:ExchangedDocument')
         .ele('ram:ID').txt(inv.numero).up()
         .ele('ram:TypeCode').txt('380').up()
         .ele('ram:IssueDateTime')
           .ele('udt:DateTimeString', { format: '102' }).txt(dateIss).up()
         .up()
-      .up()
-      .ele('rsm:SupplyChainTradeTransaction')
-        .ele('ram:ApplicableHeaderTradeAgreement')
-          .ele('ram:SellerTradeParty')
-            .ele('ram:Name').txt(user.entreprise || '').up()
-            .ele('ram:SpecifiedLegalOrganization')
-              .ele('ram:ID', { schemeID: '0002' }).txt(user.siren || '').up()
-            .up()
-            .ele('ram:SpecifiedTaxRegistration')
-              .ele('ram:ID', { schemeID: 'VA' }).txt(user.tva_num || '').up()
-            .up()
-            .ele('ram:PostalTradeAddress')
-              .ele('ram:LineOne').txt(user.adresse || '').up()
-              .ele('ram:CountryID').txt('FR').up()
-            .up()
+      .up();
+
+  // ── Transaction ────────────────────────────────────────────────────────────
+  const txnNode = root.ele('rsm:SupplyChainTradeTransaction');
+
+  // Agreement — Vendeur
+  const seller = txnNode
+    .ele('ram:ApplicableHeaderTradeAgreement')
+      .ele('ram:SellerTradeParty');
+
+  seller.ele('ram:Name').txt(user.entreprise || '').up();
+  seller.ele('ram:SpecifiedLegalOrganization')
+          .ele('ram:ID', { schemeID: '0002' }).txt(user.siren || '').up()
+        .up();
+  // Contact vendeur (EN 16931 recommandé)
+  seller.ele('ram:DefinedTradeContact')
+          .ele('ram:PersonName').txt(`${user.prenom || ''} ${user.nom || ''}`.trim()).up()
+          .ele('ram:TelephoneUniversalCommunication')
+            .ele('ram:CompleteNumber').txt(user.tel || '').up()
           .up()
-          .ele('ram:BuyerTradeParty')
-            .ele('ram:Name').txt(client?.nom || inv.client_nom || '').up()
-            .ele('ram:SpecifiedLegalOrganization')
-              .ele('ram:ID', { schemeID: '0009' }).txt(client?.siret || '').up()
-            .up()
-            .ele('ram:PostalTradeAddress')
-              .ele('ram:LineOne').txt(client?.adresse || '').up()
-              .ele('ram:CountryID').txt('FR').up()
-            .up()
-          .up()
-        .up()
-        .ele('ram:ApplicableHeaderTradeDelivery')
-          .ele('ram:ActualDeliverySupplyChainEvent')
-            .ele('ram:OccurrenceDateTime')
-              .ele('udt:DateTimeString', { format: '102' }).txt(dateIss).up()
-            .up()
-          .up()
-        .up()
-        .ele('ram:ApplicableHeaderTradeSettlement')
-          .ele('ram:InvoiceCurrencyCode').txt('EUR').up()
-          // IBAN PaymentMeans si disponible
-          ...(user.iban ? [
-            { tag: 'ram:SpecifiedTradeSettlementPaymentMeans', children: [
-              { tag: 'ram:TypeCode', text: '30' },
-              { tag: 'ram:PayeePartyCreditorFinancialAccount', children: [
-                { tag: 'ram:IBANID', text: user.iban.replace(/\s/g, '') },
-              ]},
-            ]},
-          ] : [])
-          // TVA EN 16931 obligatoire
-          .ele('ram:ApplicableTradeTax')
-            .ele('ram:CalculatedAmount').txt(tvaAmt.toFixed(2)).up()
-            .ele('ram:TypeCode').txt('VAT').up()
-            .ele('ram:BasisAmount').txt(ht.toFixed(2)).up()
-            .ele('ram:CategoryCode').txt('S').up()
-            .ele('ram:RateApplicablePercent').txt(tvaRate.toFixed(2)).up()
-          .up()
-          .ele('ram:SpecifiedTradePaymentTerms')
-            .ele('ram:DueDateDateTime')
-              .ele('udt:DateTimeString', { format: '102' }).txt(dateEch).up()
-            .up()
-          .up()
-          .ele('ram:SpecifiedTradeSettlementHeaderMonetarySummation')
-            .ele('ram:LineTotalAmount').txt(ht.toFixed(2)).up()
-            .ele('ram:TaxBasisTotalAmount').txt(ht.toFixed(2)).up()
-            .ele('ram:TaxTotalAmount', { currencyID: 'EUR' }).txt(tvaAmt.toFixed(2)).up()
-            .ele('ram:GrandTotalAmount').txt(ttc.toFixed(2)).up()
-            .ele('ram:TotalPrepaidAmount').txt('0.00').up()
-            .ele('ram:DuePayableAmount').txt(ttc.toFixed(2)).up()
+          .ele('ram:EmailURIUniversalCommunication')
+            .ele('ram:URIID').txt(user.email || '').up()
           .up()
         .up();
+  seller.ele('ram:SpecifiedTaxRegistration')
+          .ele('ram:ID', { schemeID: 'VA' }).txt(user.tva_num || '').up()
+        .up();
+  seller.ele('ram:PostalTradeAddress')
+          .ele('ram:LineOne').txt(user.adresse || '').up()
+          .ele('ram:CountryID').txt('FR').up()
+        .up();
+
+  // Acheteur
+  const agreement = seller.up(); // remonte à ApplicableHeaderTradeAgreement
+  agreement.ele('ram:BuyerTradeParty')
+      .ele('ram:Name').txt(client?.nom || inv.client_nom || '').up()
+      .ele('ram:SpecifiedLegalOrganization')
+        .ele('ram:ID', { schemeID: '0009' }).txt(client?.siret || '').up()
+      .up()
+      .ele('ram:PostalTradeAddress')
+        .ele('ram:LineOne').txt(client?.adresse || '').up()
+        .ele('ram:CountryID').txt('FR').up()
+      .up()
+    .up(); // fin BuyerTradeParty → remonte à agreement
+
+  // Livraison
+  txnNode.ele('ram:ApplicableHeaderTradeDelivery')
+      .ele('ram:ActualDeliverySupplyChainEvent')
+        .ele('ram:OccurrenceDateTime')
+          .ele('udt:DateTimeString', { format: '102' }).txt(dateIss).up()
+        .up()
+      .up()
+    .up();
+
+  // Règlement
+  const settlement = txnNode.ele('ram:ApplicableHeaderTradeSettlement');
+  settlement.ele('ram:InvoiceCurrencyCode').txt('EUR').up();
+
+  // PaymentMeans : IBAN inclus seulement si INCLUDE_IBAN_IN_XML=true (opt-in explicite)
+  // Par défaut : BIC seul — identifie la banque sans exposer l'IBAN en clair dans le PDF
+  if (user.iban && process.env.INCLUDE_IBAN_IN_XML === 'true') {
+    const pm = settlement.ele('ram:SpecifiedTradeSettlementPaymentMeans');
+    pm.ele('ram:TypeCode').txt('30').up();
+    pm.ele('ram:PayeePartyCreditorFinancialAccount')
+        .ele('ram:IBANID').txt(user.iban.replace(/\s/g, '')).up()
+      .up();
+    if (user.bic) {
+      pm.ele('ram:PayeePartyCreditorFinancialInstitution')
+          .ele('ram:BICID').txt(user.bic.replace(/\s/g, '')).up()
+        .up();
+    }
+    pm.up();
+  } else if (user.bic) {
+    settlement.ele('ram:SpecifiedTradeSettlementPaymentMeans')
+        .ele('ram:TypeCode').txt('30').up()
+        .ele('ram:PayeePartyCreditorFinancialInstitution')
+          .ele('ram:BICID').txt(user.bic.replace(/\s/g, '')).up()
+        .up()
+      .up();
+  }
+
+  // TVA
+  settlement.ele('ram:ApplicableTradeTax')
+      .ele('ram:CalculatedAmount').txt(tvaAmt.toFixed(2)).up()
+      .ele('ram:TypeCode').txt('VAT').up()
+      .ele('ram:BasisAmount').txt(ht.toFixed(2)).up()
+      .ele('ram:CategoryCode').txt('S').up()
+      .ele('ram:RateApplicablePercent').txt(tvaRate.toFixed(2)).up()
+    .up();
+
+  // Termes de paiement
+  settlement.ele('ram:SpecifiedTradePaymentTerms')
+      .ele('ram:DueDateDateTime')
+        .ele('udt:DateTimeString', { format: '102' }).txt(dateEch).up()
+      .up()
+    .up();
+
+  // Totaux
+  settlement.ele('ram:SpecifiedTradeSettlementHeaderMonetarySummation')
+      .ele('ram:LineTotalAmount').txt(ht.toFixed(2)).up()
+      .ele('ram:TaxBasisTotalAmount').txt(ht.toFixed(2)).up()
+      .ele('ram:TaxTotalAmount', { currencyID: 'EUR' }).txt(tvaAmt.toFixed(2)).up()
+      .ele('ram:GrandTotalAmount').txt(ttc.toFixed(2)).up()
+      .ele('ram:TotalPrepaidAmount').txt('0.00').up()
+      .ele('ram:DuePayableAmount').txt(ttc.toFixed(2)).up()
+    .up();
+
+  const doc = root; // alias pour le reste du code existant
 
   // Lignes de détail
   const txn = doc.root().last(); // SupplyChainTradeTransaction
