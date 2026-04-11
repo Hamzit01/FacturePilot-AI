@@ -1,23 +1,11 @@
 'use strict';
 const express = require('express');
+const { requireCronSecret } = require('../middlewares/cron.middleware');
 const router  = express.Router();
 
-// POST /api/cron/relances — appelé par Vercel Cron Jobs, envoie les relances automatiques
-// Sécurisé par CRON_SECRET (header Authorization: Bearer <secret>, x-cron-secret, ou ?secret=)
-router.post('/relances', async (req, res) => {
-  const authHeader      = req.headers['authorization'] || '';
-  const providedSecret  = authHeader.replace('Bearer ', '')
-    || req.headers['x-cron-secret']
-    || req.query.secret;
-
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    console.error('[CRON] CRON_SECRET non configuré — endpoint désactivé par sécurité');
-    return res.status(503).json({ error: 'Cron non configuré' });
-  }
-  if (providedSecret !== cronSecret) {
-    return res.status(401).json({ error: 'Non autorisé' });
-  }
+// POST /api/cron/relances — legacy endpoint (conservé pour compatibilité outils externes)
+// Sécurisé par requireCronSecret (Authorization: Bearer CRON_SECRET uniquement)
+router.post('/relances', requireCronSecret, async (req, res) => {
 
   const today = new Date().toISOString().split('T')[0];
   const { sendMail } = require('../services/mailer');

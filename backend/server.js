@@ -127,8 +127,7 @@ if (!process.env.VERCEL && require.main === module) {
   app.listen(PORT, () => {
     console.log(`\n✅  FacturePilot AI — Backend opérationnel`);
     console.log(`🌐  http://localhost:${PORT}`);
-    console.log(`🔒  Mode : ${isProd ? 'PRODUCTION' : 'développement'}`);
-    console.log(`📧  Démo : hamza@facturepilot.ai / demo1234\n`);
+    console.log(`🔒  Mode : ${isProd ? 'PRODUCTION' : 'développement'}\n`);
   });
 }
 

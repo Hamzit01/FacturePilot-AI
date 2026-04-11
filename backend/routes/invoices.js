@@ -625,4 +625,70 @@ router.get('/stats/aging', auth, async (req, res) => {
   }
 });
 
+// POST /api/invoices/:id/send-pdp — dépôt sur Plateforme de Dématérialisation Partenaire (réforme 2026)
+// Conformément à l'ordonnance 2021-1190, obligation à compter du 1er sept. 2026 (grandes entreprises)
+// Note : l'intégration avec le PDP réel (ex. Chorus Pro, Docaposte…) nécessite une connexion API externe.
+//        Cet endpoint simule le dépôt, met à jour le statut PDP et renvoie la référence.
+router.post('/:id/send-pdp', auth, async (req, res) => {
+  try {
+    const inv = (await db.query(
+      'SELECT * FROM invoices WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.user.id]
+    )).rows[0];
+    if (!inv) return res.status(404).json({ error: 'Facture introuvable' });
+
+    // Seules les factures émises ou en retard sont éligibles
+    if (!['envoyee', 'retard'].includes(inv.statut)) {
+      return res.status(400).json({
+        error: `La facture doit être émise ou en retard pour être déposée sur la PDP (statut actuel : ${inv.statut})`,
+      });
+    }
+
+    // Vérifier que le dépôt n'a pas déjà été effectué
+    if (inv.pdp_status) {
+      return res.status(409).json({
+        error: `Cette facture a déjà été déposée sur la PDP (statut : ${inv.pdp_status})`,
+        pdp_status: inv.pdp_status,
+        pdp_ref: inv.pdp_ref,
+      });
+    }
+
+    // Générer une référence PDP unique (format simulé — remplacer par l'ID retourné par le PDP réel)
+    const pdpRef = `PDP-${inv.numero}-${Date.now().toString(36).toUpperCase()}`;
+
+    // Mettre à jour le statut PDP en base
+    const { rows: [updated] } = await db.query(`
+      UPDATE invoices
+         SET pdp_status  = 'deposee',
+             pdp_sent_at = NOW(),
+             pdp_ref     = $1
+       WHERE id = $2 AND user_id = $3
+      RETURNING *
+    `, [pdpRef, req.params.id, req.user.id]);
+
+    // Log audit
+    db.query(
+      "INSERT INTO audit_log (user_id, action, entity, entity_id, payload, ip) VALUES ($1,'send_pdp','invoice',$2,$3,$4)",
+      [req.user.id, parseInt(req.params.id), JSON.stringify({ pdp_ref: pdpRef, numero: inv.numero }), req.ip || '']
+    ).catch(() => {});
+
+    const { rows: relances } = await db.query(
+      'SELECT * FROM relances WHERE invoice_id=$1 ORDER BY created_at',
+      [updated.id]
+    );
+
+    console.log(`[PDP] ✅ Facture ${inv.numero} déposée — réf. ${pdpRef}`);
+    res.json({
+      ok: true,
+      message: `Facture ${inv.numero} déposée sur la PDP`,
+      pdp_ref: pdpRef,
+      pdp_status: 'deposee',
+      invoice: fmtInv(updated, relances),
+    });
+  } catch (err) {
+    console.error('[PDP]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
