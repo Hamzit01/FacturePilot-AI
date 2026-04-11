@@ -23,6 +23,7 @@
           "guide-utilisateur.html",
           "assets/app.css",
           "assets/app.js",
+          "assets/onboarding.js",
           "manifest.json",
           "sw.js"
         ]

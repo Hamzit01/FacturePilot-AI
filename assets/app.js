@@ -456,6 +456,65 @@ ${lineItems}
     document.getElementById('fp-confirm-ok').onclick = () => { overlay.style.display='none'; onOk(); };
   };
 
+  // ─── SETUP PROGRESS WIDGET (Gamification) ────────────────────────────────────
+  // Affiché dans la sidebar tant que les 3 tâches clés ne sont pas complétées
+  // Disparaît définitivement quand toutes sont faites ou si l'utilisateur le ferme
+  const LS_SETUP_DISMISSED = 'fp_setup_dismissed';
+
+  const getSetupProgress = () => {
+    const user    = getUser();
+    const clients = getClients();
+    const invoices = getInvoices();
+    return {
+      iban:    user.has_iban === true,
+      client:  clients.length > 0,
+      invoice: invoices.some(i => i.statut && i.statut !== 'brouillon'),
+    };
+  };
+
+  const dismissSetup = () => {
+    localStorage.setItem(LS_SETUP_DISMISSED, '1');
+    const w = document.getElementById('setup-widget');
+    if (w) { w.style.animation = 'none'; w.style.opacity = '0'; w.style.transform = 'translateY(-6px)'; w.style.transition = 'all .3s'; setTimeout(() => w.remove(), 300); }
+  };
+
+  const _setupWidgetHTML = () => {
+    if (localStorage.getItem(LS_SETUP_DISMISSED) === '1') return '';
+    const p = getSetupProgress();
+    const tasks = [
+      { key: 'iban',    icon: '🏦', label: 'Configurer mon IBAN', done: p.iban,    href: 'settings.html'  },
+      { key: 'client',  icon: '👤', label: 'Ajouter un client',   done: p.client,  href: 'clients.html'   },
+      { key: 'invoice', icon: '📄', label: 'Envoyer une facture',  done: p.invoice, href: 'factures.html'  },
+    ];
+    const doneCount = tasks.filter(t => t.done).length;
+    const pct = Math.round(doneCount / tasks.length * 100);
+
+    // Widget masqué si tout est complété ET qu'on a déjà vu 100% (auto-dismiss)
+    if (pct === 100) {
+      // Auto-dismiss après 5 secondes si tout est fait
+      setTimeout(() => {
+        if (!localStorage.getItem(LS_SETUP_DISMISSED)) dismissSetup();
+      }, 5000);
+    }
+
+    return `
+      <div class="setup-widget" id="setup-widget">
+        <div class="setup-widget-header">
+          <span class="setup-widget-title">Ton setup</span>
+          <span class="setup-widget-pct">${pct}%</span>
+        </div>
+        <div class="setup-progress-bar">
+          <div class="setup-progress-fill" style="width:${pct}%"></div>
+        </div>
+        ${tasks.map(t => `
+          <div class="setup-task ${t.done ? 'done' : ''}" ${!t.done ? `onclick="window.location.href='${t.href}'" style="cursor:pointer"` : ''} title="${!t.done ? 'Cliquer pour configurer' : 'Complété ✓'}">
+            <div class="setup-task-check">${t.done ? '✓' : ''}</div>
+            <span class="setup-task-label">${t.icon} ${t.label}</span>
+          </div>`).join('')}
+        <button class="setup-widget-dismiss" onclick="FP.dismissSetup()">Masquer</button>
+      </div>`;
+  };
+
   // ─── SIDEBAR RENDER ───────────────────────────────────────────────────────────
   const renderSidebar = (activePage) => {
     _activePage = activePage;
@@ -484,6 +543,7 @@ ${lineItems}
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>
         📘 Guide utilisateur
       </a>
+      ${_setupWidgetHTML()}
       <div class="sidebar-footer">
         <div class="user-row">
           <div class="user-avatar">${ini}</div>
@@ -534,6 +594,8 @@ ${lineItems}
     getInvoices, saveInvoices, getInvoice, addInvoice, updateInvoice, deleteInvoice, addRelance,
     // User
     getUser, saveUser,
+    // Setup widget
+    getSetupProgress, dismissSetup,
     // API helper — returns parsed JSON, throws on error
     api: async (path, opts) => apiFetch(path, opts).then(r => r.json()),
     // KPIs & utils
