@@ -6,7 +6,7 @@ const path       = require('path');
 const helmet     = require('helmet');
 const morgan     = require('morgan');
 const compression = require('compression');
-const rateLimit  = require('express-rate-limit');
+const { authLimiter, aiLimiter, globalLimiter } = require('./middlewares/rate-limit');
 
 // ─── Init DB (runs schema + migration + seed on first launch) ────────────────
 const db = require('./db');
@@ -78,30 +78,17 @@ app.use(express.json({ limit: '5mb' }));   // 5 MB pour logos base64
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
-// Auth routes — strict (brute-force protection)
-app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Trop de tentatives, réessayez dans 15 minutes' },
-}));
-
-// Global API limiter — generous but prevents abuse
-app.use('/api', rateLimit({
-  windowMs: 60 * 1000,   // 1 minute
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Trop de requêtes, veuillez ralentir' },
-}));
+app.use('/api/auth',                      authLimiter);   // 10 req/15 min — brute-force
+app.use('/api/invoices/:id/ai-relance',   aiLimiter);     // 20 req/heure — quota OpenAI
+app.use('/api',                           globalLimiter); // 200 req/min — anti-flood
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/me',       require('./routes/user'));
 app.use('/api/clients',  require('./routes/clients'));
 app.use('/api/invoices', require('./routes/invoices'));
-app.use('/api/cron',    require('./routes/cron'));
+app.use('/api/cron',    require('./routes/cron'));          // legacy POST (conservé)
+app.use('/api/cron',    require('./routes/cron.routes'));   // GET /api/cron/relances (Vercel)
 
 // ─── Static files (frontend) ─────────────────────────────────────────────────
 const STATIC_DIR = path.join(__dirname, '..');

@@ -243,6 +243,27 @@ async function initDB() {
     $$ LANGUAGE plpgsql
   `).catch(() => {});
 
+  // ── Migration 003 : cycle de vie PDP (réforme 2026) ──────────────────────
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pdp_status') THEN
+        CREATE TYPE pdp_status AS ENUM ('deposee','rejetee','refusee','approuvee','encaissee');
+      END IF;
+    END;
+    $$
+  `).catch(() => {});
+  await pool.query(`
+    ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS pdp_status  pdp_status  DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS pdp_sent_at TIMESTAMPTZ DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS pdp_ref     TEXT        DEFAULT NULL
+  `).catch(() => {});
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_invoices_pdp_status
+      ON invoices(user_id, pdp_status) WHERE pdp_status IS NOT NULL
+  `).catch(() => {});
+
   // Seed si la table users est vide
   const { rows } = await pool.query('SELECT COUNT(*) as n FROM users');
   if (parseInt(rows[0].n, 10) === 0) {
