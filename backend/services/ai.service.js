@@ -1,71 +1,83 @@
 'use strict';
 /**
- * Service IA — génération de relances commerciales personnalisées
- * Modèle : gpt-4o-mini  (coût minimal, latence faible)
- * Fallback : template statique si OPENAI_API_KEY absent ou quota dépassé
+ * Service IA — génération de relances commerciales via Gemini 1.5 Flash
+ * Tier gratuit Google : 15 req/min, 1 500 req/jour, 0 €
+ * Fallback statique automatique si GEMINI_API_KEY absent ou quota dépassé
  */
-const OpenAI = require('openai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 
-// Singleton — instancié une seule fois, pas à chaque requête
-let _client = null;
-const getClient = () => {
-  if (!_client) {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY non défini');
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return _client;
+// ── Singleton ─────────────────────────────────────────────────────────────────
+let _model = null;
+
+const getModel = () => {
+  if (_model) return _model;
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY non défini');
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+  _model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    // Safety settings : BLOCK_NONE sur toutes les catégories sensibles
+    // Obligatoire — les relances "mise_en_demeure" déclenchent le filtre harassment
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ],
+    generationConfig: {
+      temperature:     0.4,   // reproductible, ton professionnel stable
+      maxOutputTokens: 512,
+      topP:            0.9,
+    },
+  });
+
+  return _model;
 };
 
-// ── Prompt système (optimisé pour le droit commercial français) ──────────────
-const SYSTEM_PROMPT = `Tu es un expert juridique et commercial français, spécialisé dans le recouvrement de créances B2B.
+// ── Prompt système (optimisé droit commercial français) ───────────────────────
+const SYSTEM_PROMPT = `Tu es un expert juridique et commercial français spécialisé dans le recouvrement de créances B2B.
 Tu rédiges des emails de relance pour des factures impayées.
 
 Règles absolues :
 - Langue : français professionnel, sans fautes
-- Format : email complet (objet + corps), sans balises HTML, sans markdown
-- Longueur : 120–200 mots maximum
-- Ne jamais menacer de poursuites judiciaires avant J+45
-- Respecter la hiérarchie des tons selon l'ancienneté du retard
-- Inclure toujours : montant TTC, numéro de facture s'il est fourni, échéance dépassée en jours
+- Format STRICT : deux blocs séparés par une ligne vide
+    OBJET: <sujet>
+
+    <corps de l'email>
+- Longueur corps : 80 à 150 mots maximum
+- Inclure toujours : montant TTC, numéro de facture si fourni, jours de retard
 - Terminer par une formule de politesse adaptée au ton
 
 Hiérarchie des tons :
-  courtois  → rappel amical, on suppose un oubli, ton chaleureux
-  ferme     → deuxième relance, on rappelle l'obligation contractuelle, ton neutre et direct
-  urgent    → troisième relance, mise en cause, risque de pénalités de retard (art. L441-10 C.com)
-  mise_en_demeure → courrier formel, mention des intérêts légaux, délai de 8 jours avant mise en recouvrement
+  courtois        → rappel amical, suppose un oubli, ton chaleureux
+  ferme           → 2ème relance, obligation contractuelle, ton neutre et direct
+  urgent          → 3ème relance, pénalités de retard légales (art. L441-10 C.com)
+  mise_en_demeure → courrier formel, délai de 8 jours, intérêts légaux, recouvrement externe`;
 
-Structure de réponse STRICTE (deux blocs séparés par une ligne vide) :
-OBJET: <sujet de l'email>
-
-<corps de l'email>`;
-
-// ── Mapping tone → instruction ────────────────────────────────────────────────
+// ── Mapping tone → instruction ─────────────────────────────────────────────────
 const TONE_INSTRUCTIONS = {
-  courtois:         'Ton : courtois et amical. Supposer un simple oubli.',
-  ferme:            'Ton : ferme et professionnel. Rappeler l\'obligation de paiement.',
-  urgent:           'Ton : urgent. Mentionner les pénalités de retard légales (art. L441-10).',
-  mise_en_demeure:  'Ton : mise en demeure formelle. Délai de 8 jours avant recouvrement externe.',
+  courtois:        'Ton : courtois et amical. Suppose un simple oubli.',
+  ferme:           "Ton : ferme et professionnel. Rappelle l'obligation contractuelle de paiement.",
+  urgent:          'Ton : urgent. Mentionne les pénalités légales (art. L441-10 C.com).',
+  mise_en_demeure: 'Ton : mise en demeure formelle. Délai de 8 jours avant recouvrement externe. Mentionne les intérêts légaux.',
 };
 
+// ── generateDunningEmail ───────────────────────────────────────────────────────
 /**
- * generateDunningEmail
- *
- * @param {string}   clientName  — Nom du client (entreprise ou prénom/nom)
+ * @param {string}   clientName  — Nom du client
  * @param {number}   amount      — Montant TTC en euros
- * @param {number}   daysLate    — Nombre de jours de retard
+ * @param {number}   daysLate    — Jours de retard
  * @param {string}   tone        — 'courtois' | 'ferme' | 'urgent' | 'mise_en_demeure'
- * @param {object[]} history     — Historique des relances précédentes :
- *                                 [{ date: 'YYYY-MM-DD', tone: 'courtois' }, ...]
- * @param {object}   [opts]      — Options facultatives : { invoiceNumber, senderName, senderCompany }
- *
+ * @param {object[]} history     — [{ date, ton }, ...] relances précédentes
+ * @param {object}   opts        — { invoiceNumber, senderName, senderCompany }
  * @returns {Promise<{ subject: string, body: string }>}
  */
 const generateDunningEmail = async (clientName, amount, daysLate, tone, history = [], opts = {}) => {
   const toneInstruction = TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS.courtois;
 
   const historyText = history.length
-    ? `Relances déjà envoyées : ${history.map(h => `${h.date} (${h.tone})`).join(', ')}.`
+    ? `Relances déjà envoyées : ${history.map(h => `${h.date} (${h.ton})`).join(', ')}.`
     : 'Première relance.';
 
   const invoiceRef = opts.invoiceNumber ? `Référence facture : ${opts.invoiceNumber}.` : '';
@@ -73,7 +85,9 @@ const generateDunningEmail = async (clientName, amount, daysLate, tone, history 
     ? `Expéditeur : ${opts.senderName}${opts.senderCompany ? ` — ${opts.senderCompany}` : ''}.`
     : '';
 
-  const userPrompt = [
+  const prompt = [
+    SYSTEM_PROMPT,
+    '',
     `Client : ${clientName}.`,
     `Montant impayé : ${Number(amount).toFixed(2)} € TTC.`,
     `Retard : ${daysLate} jour(s).`,
@@ -84,67 +98,69 @@ const generateDunningEmail = async (clientName, amount, daysLate, tone, history 
   ].filter(Boolean).join('\n');
 
   try {
-    const openai = getClient();
+    const model  = getModel();
+    const result = await model.generateContent(prompt);
+    const raw    = result.response.text().trim();
 
-    const completion = await openai.chat.completions.create({
-      model:       'gpt-4o-mini',
-      temperature: 0.4,      // Faible variabilité — ton professionnel reproductible
-      max_tokens:  500,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: userPrompt },
-      ],
-    });
+    // Vérification blocage Gemini (safety triggered malgré BLOCK_NONE)
+    const candidate = result.response.candidates?.[0];
+    if (candidate?.finishReason === 'SAFETY') {
+      console.warn('[AI] Gemini safety block — fallback statique');
+      return staticFallback(clientName, amount, daysLate, tone, opts);
+    }
 
-    const raw = completion.choices[0]?.message?.content?.trim() || '';
-    return parseResponse(raw, clientName, amount, daysLate, tone);
+    return parseResponse(raw, amount, tone);
 
   } catch (err) {
-    console.error('[AI] generateDunningEmail error:', err.message);
-    // Fallback statique — ne jamais bloquer la relance pour une erreur IA
+    console.error('[AI] Gemini error:', err.message);
     return staticFallback(clientName, amount, daysLate, tone, opts);
   }
 };
 
-// ── Parser la réponse LLM (format: "OBJET: ...\n\n<corps>") ─────────────────
-const parseResponse = (raw, clientName, amount, daysLate, tone) => {
+// ── Parser la réponse (format: "OBJET: ...\n\n<corps>") ──────────────────────
+const parseResponse = (raw, amount, tone) => {
   const lines   = raw.split('\n');
-  const objLine = lines.find(l => l.startsWith('OBJET:') || l.startsWith('Objet:'));
+  const objLine = lines.find(l => /^(OBJET|Objet)\s*:/i.test(l));
   const subject = objLine
-    ? objLine.replace(/^(OBJET|Objet):\s*/i, '').trim()
-    : `Relance — Facture impayée de ${amount.toFixed(2)} €`;
+    ? objLine.replace(/^(OBJET|Objet)\s*:\s*/i, '').trim()
+    : `Relance — Facture impayée de ${Number(amount).toFixed(2)} €`;
 
-  // Corps = tout après la ligne OBJET + la ligne vide suivante
   const bodyStart = objLine ? lines.indexOf(objLine) + 1 : 0;
   const body = lines
     .slice(bodyStart)
     .join('\n')
-    .replace(/^\n+/, '')   // supprimer les lignes vides initiales
+    .replace(/^\n+/, '')
     .trim();
 
-  return { subject, body };
+  return { subject, body: body || staticFallback('', amount, 0, tone).body };
 };
 
-// ── Fallback statique (si pas de clé API ou quota dépassé) ──────────────────
+// ── Fallback statique (Dumb Dunning) ─────────────────────────────────────────
 const staticFallback = (clientName, amount, daysLate, tone, opts = {}) => {
+  const amt     = Number(amount).toFixed(2);
   const invoice = opts.invoiceNumber ? ` (réf. ${opts.invoiceNumber})` : '';
-  const subjects = {
-    courtois:        `Rappel — Facture de ${amount.toFixed(2)} € en attente de règlement`,
-    ferme:           `2ème relance — Facture impayée de ${amount.toFixed(2)} €`,
-    urgent:          `URGENT — Facture de ${amount.toFixed(2)} € — Retard de ${daysLate} jours`,
-    mise_en_demeure: `Mise en demeure — Facture${invoice} de ${amount.toFixed(2)} € TTC`,
-  };
-  const bodies = {
-    courtois: `Bonjour,\n\nNous vous contactons au sujet de votre facture${invoice} d'un montant de ${amount.toFixed(2)} € TTC, dont le règlement est en attente depuis ${daysLate} jour(s).\n\nPeut-être s'agit-il d'un simple oubli ? Nous vous invitons à procéder au règlement dans les meilleurs délais.\n\nRestant à votre disposition pour tout renseignement.\n\nCordialement`,
-    ferme:    `Bonjour,\n\nMalgré notre précédent rappel, nous constatons que la facture${invoice} de ${amount.toFixed(2)} € TTC demeure impayée (retard : ${daysLate} jours).\n\nNous vous demandons de bien vouloir régulariser cette situation sous 5 jours ouvrés.\n\nCordialement`,
-    urgent:   `Bonjour,\n\nNous vous informons que la facture${invoice} de ${amount.toFixed(2)} € TTC accuse un retard de ${daysLate} jours. Conformément à l'article L441-10 du Code de commerce, des pénalités de retard sont applicables à compter de la date d'échéance.\n\nNous vous demandons de régulariser cette situation immédiatement.\n\nCordialement`,
-    mise_en_demeure: `Madame, Monsieur,\n\nPar la présente, nous vous mettons en demeure de régler la facture${invoice} d'un montant de ${amount.toFixed(2)} € TTC, impayée depuis ${daysLate} jours, dans un délai de 8 jours à compter de la réception de ce courrier.\n\nA défaut, nous nous réserverons le droit d'engager toute procédure de recouvrement utile, aux frais du débiteur.\n\nVeuillez agréer nos salutations distinguées`,
+  const client  = clientName || 'Madame, Monsieur';
+
+  const templates = {
+    courtois: {
+      subject: `Rappel — Facture${invoice} de ${amt} € en attente de règlement`,
+      body:    `Bonjour ${client},\n\nSauf erreur de notre part, votre facture${invoice} d'un montant de ${amt} € TTC est en attente de règlement depuis ${daysLate} jour(s). Il s'agit peut-être d'un simple oubli.\n\nNous vous invitons à procéder au règlement dans les meilleurs délais.\n\nCordialement`,
+    },
+    ferme: {
+      subject: `2ème relance — Facture${invoice} impayée de ${amt} €`,
+      body:    `Bonjour ${client},\n\nMalgré notre précédent rappel, votre facture${invoice} de ${amt} € TTC demeure impayée (retard : ${daysLate} jours). Nous vous demandons de régulariser cette situation sous 5 jours ouvrés.\n\nCordialement`,
+    },
+    urgent: {
+      subject: `URGENT — Facture${invoice} de ${amt} € — Retard de ${daysLate} jours`,
+      body:    `Bonjour ${client},\n\nVotre facture${invoice} de ${amt} € TTC accuse un retard de ${daysLate} jours. Conformément à l'art. L441-10 du Code de commerce, des pénalités de retard sont exigibles immédiatement.\n\nNous vous demandons de régulariser sous 48 heures.\n\nCordialement`,
+    },
+    mise_en_demeure: {
+      subject: `Mise en demeure — Facture${invoice} de ${amt} € TTC`,
+      body:    `Madame, Monsieur,\n\nPar la présente, nous vous mettons en demeure de régler la facture${invoice} d'un montant de ${amt} € TTC, impayée depuis ${daysLate} jours, dans un délai de 8 jours à compter de la réception du présent courrier.\n\nPassé ce délai, nous engagerons toute procédure de recouvrement utile, aux frais du débiteur.\n\nVeuillez agréer nos salutations distinguées`,
+    },
   };
 
-  return {
-    subject: subjects[tone] || subjects.courtois,
-    body:    bodies[tone]   || bodies.courtois,
-  };
+  return templates[tone] || templates.courtois;
 };
 
 module.exports = { generateDunningEmail };
