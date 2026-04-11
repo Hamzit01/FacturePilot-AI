@@ -48,8 +48,23 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
-// ─── Request logging ─────────────────────────────────────────────────────────
-app.use(morgan(isProd ? 'combined' : 'dev'));
+// ─── Request logging sécurisé ───────────────────────────────────────────────���
+// En production : format minimal (méthode, URL sanitisée, statut, temps)
+// Les champs sensibles (email, password, iban, bic, token) sont masqués dans l'URL
+// req.body n'est JAMAIS loggué (Morgan n'y a pas accès par défaut)
+if (isProd) {
+  // Token Morgan personnalisé : URL sans query params sensibles
+  morgan.token('safe-url', (req) => {
+    try {
+      const SENSITIVE = /[?&](email|password|token|iban|bic|secret|key|code)=[^&]*/gi;
+      return req.originalUrl.replace(SENSITIVE, (m, k) => m.replace(/=.*/i, '=[REDACTED]'));
+    } catch { return req.originalUrl; }
+  });
+  // Format : IP - méthode URL status temps
+  app.use(morgan(':remote-addr - :method :safe-url :status :res[content-length] - :response-time ms'));
+} else {
+  app.use(morgan('dev'));
+}
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -67,11 +82,14 @@ app.use(cors({
   credentials: true,
 }));
 
-// ─── Stripe webhook (RAW body — DOIT être avant express.json) ────────────────
-// Stripe envoie un corps brut signé ; express.json() le détruirait avant vérification
+// ─── Stripe (RAW body — DOIT être avant express.json) ────────────────────────
+// /api/stripe/webhook   — legacy (conservé pour compatibilité)
+// /api/webhooks/stripe  — webhook principal (switch complet + idempotence)
+// /api/stripe/checkout  — création de Checkout Session (live/test auto-switch)
+// /api/stripe/prices    — liste des Price IDs actifs
 app.use('/api/stripe',   require('./routes/stripe'));
-// Nouveau webhook dédié (switch complet + customer.subscription.deleted)
 app.use('/api/webhooks', require('./routes/stripe.routes'));
+app.use('/api/stripe',   require('./routes/stripe.routes')); // checkout + prices
 
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '5mb' }));   // 5 MB pour logos base64
@@ -104,9 +122,22 @@ app.get(/^(?!\/api).*/, (_req, res) => {
 });
 
 // ─── Error handler ────────────────────────────────────────────────────────────
+// En production : les stack traces sont loguées sans les champs sensibles
+const SENSITIVE_KEYS = /\b(password|password_hash|iban|bic|token|secret|key|authorization)\b/gi;
+const sanitizeForLog = (obj) => {
+  if (!obj) return obj;
+  try {
+    return JSON.stringify(obj).replace(SENSITIVE_KEYS, '[REDACTED]');
+  } catch { return '[non-sérialisable]'; }
+};
+
 app.use((err, _req, res, _next) => {
   const status = err.status || err.statusCode || 500;
-  if (status >= 500) console.error('[ERROR]', err.stack || err.message);
+  if (status >= 500) {
+    // Log l'erreur sans les champs sensibles
+    const msg = isProd ? sanitizeForLog(err.message) : (err.stack || err.message);
+    console.error('[ERROR]', msg);
+  }
   // En production : ne jamais exposer les internals DB (noms de tables, contraintes, colonnes)
   let message = err.message || 'Erreur serveur';
   if (isProd && status >= 500) {

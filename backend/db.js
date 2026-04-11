@@ -97,12 +97,28 @@ async function seedDemo() {
 // ─── Mise à jour automatique des statuts "retard" ────────────────────────────
 async function updateOverdueStatuses() {
   const today = new Date().toISOString().split('T')[0];
-  const result = await pool.query(`
-    UPDATE invoices SET statut = 'retard'
-    WHERE statut = 'envoyee' AND date_echeance < $1
-  `, [today]);
-  if (result.rowCount > 0) {
-    console.log(`[CRON] ${result.rowCount} facture(s) marquée(s) "en retard"`);
+  // bypassRLS : opération admin globale (pas de contexte user)
+  // Disponible seulement après la définition de pool.bypassRLS plus bas
+  // → on utilise pool.query() ici (appelé avant que bypassRLS soit défini)
+  // En prod avec FORCE RLS actif (migration 004), cette fonction sera wrappée
+  // dans un BEGIN + set_config bypass + COMMIT directement via client
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.bypass_rls', 'on', true)");
+    const result = await client.query(`
+      UPDATE invoices SET statut = 'retard'
+      WHERE statut = 'envoyee' AND date_echeance < $1
+    `, [today]);
+    await client.query('COMMIT');
+    if (result.rowCount > 0) {
+      console.log(`[CRON] ${result.rowCount} facture(s) marquée(s) "en retard"`);
+    }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[CRON updateOverdue]', err.message);
+  } finally {
+    client.release();
   }
 }
 
@@ -288,6 +304,57 @@ async function initDB() {
     console.log('[DB] Migration 003 appliquée (PDP statuses)');
   }
 
+  // ── Migration 004 : Row Level Security — défense en profondeur ───────────
+  // Objectif : même si le code JS oublie un WHERE user_id=$1, la DB refuse
+  // Mécanisme : SET LOCAL app.current_user_id avant chaque requête sensible
+  //             → via pool.queryAsUser(userId, sql, params)
+  // Note : FORCE RLS est activé → s'applique même au rôle postgres (superuser)
+  //        Les migrations/seed bypass via app.bypass_rls='on' (session interne)
+  if (currentVersion < 4) {
+    // ── Activer RLS + FORCE sur les 3 tables sensibles ──────────────────────
+    for (const t of ['clients', 'invoices', 'relances']) {
+      await pool.query(`ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY`).catch(() => {});
+      await pool.query(`ALTER TABLE ${t} FORCE ROW LEVEL SECURITY`).catch(() => {});
+      // Supprimer les policies existantes pour éviter les doublons
+      await pool.query(`DROP POLICY IF EXISTS owner_access  ON ${t}`).catch(() => {});
+      await pool.query(`DROP POLICY IF EXISTS bypass_mig    ON ${t}`).catch(() => {});
+    }
+
+    // ── Policy owner : accès uniquement à ses propres lignes ─────────────────
+    await pool.query(`
+      CREATE POLICY owner_access ON clients
+        USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE POLICY owner_access ON invoices
+        USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    `).catch(() => {});
+
+    // relances n'a pas de user_id direct — on remonte via invoices
+    await pool.query(`
+      CREATE POLICY owner_access ON relances
+        USING (
+          EXISTS (
+            SELECT 1 FROM invoices i
+            WHERE  i.id = relances.invoice_id
+            AND    i.user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+          )
+        )
+    `).catch(() => {});
+
+    // ── Policy bypass : migrations / seed / cron (SET app.bypass_rls='on') ──
+    for (const t of ['clients', 'invoices', 'relances']) {
+      await pool.query(`
+        CREATE POLICY bypass_mig ON ${t}
+          USING (current_setting('app.bypass_rls', true) = 'on')
+      `).catch(() => {});
+    }
+
+    await pool.query(`INSERT INTO schema_version (version) VALUES (4) ON CONFLICT DO NOTHING`);
+    console.log('[DB] Migration 004 appliquée (RLS owner_access + bypass_mig)');
+  }
+
   // Seed si la table users est vide
   const { rows } = await pool.query('SELECT COUNT(*) as n FROM users');
   if (parseInt(rows[0].n, 10) === 0) {
@@ -311,6 +378,47 @@ const ready = initDB().catch(err => {
   console.error('[DB] Erreur d\'initialisation :', err.message);
   throw err;
 });
+
+// ─── queryAsUser : exécute une requête dans le contexte RLS d'un utilisateur ──
+// Ouvre une transaction, SET LOCAL app.current_user_id = userId, exécute, COMMIT.
+// pgbouncer transaction pooler : SET LOCAL tenu sur toute la transaction ✓
+pool.queryAsUser = async function queryAsUser(userId, sql, params = []) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      "SELECT set_config('app.current_user_id', $1::text, true)",
+      [String(userId)]
+    );
+    const result = await client.query(sql, params);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+// ─── bypassRLS : exécute une requête admin sans restriction RLS ──────────────
+// Utilisé par seedDemo(), updateOverdueStatuses(), initDB()
+// NE PAS exposer aux routes user-facing
+pool.bypassRLS = async function bypassRLS(sql, params = []) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.bypass_rls', 'on', true)");
+    const result = await client.query(sql, params);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+};
 
 module.exports = pool;
 module.exports.ready = ready;

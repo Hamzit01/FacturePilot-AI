@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { validateClientBody } = require('../validators/client.validator');
 
 const router = express.Router();
 
@@ -80,7 +81,10 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { nom, siret, email, tel, adresse, secteur, delaiPaiement, risque } = req.body;
-    if (!nom) return res.status(400).json({ error: 'Le nom est requis' });
+
+    const { errors, warnings } = validateClientBody(req.body);
+    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors, warnings });
+
     const { rows: [inserted] } = await db.query(`
       INSERT INTO clients (user_id,nom,siret,email,tel,adresse,secteur,delai_paiement,risque)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id
@@ -98,6 +102,10 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const existing = (await db.query('SELECT id FROM clients WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Client introuvable' });
+
+    const { errors, warnings } = validateClientBody(req.body);
+    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors, warnings });
+
     const { nom, siret, email, tel, adresse, secteur, delaiPaiement, risque } = req.body;
     await db.query(`
       UPDATE clients SET nom=$1,siret=$2,email=$3,tel=$4,adresse=$5,secteur=$6,delai_paiement=$7,risque=$8
