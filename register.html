@@ -85,6 +85,20 @@ if (preEmail) {
   localStorage.removeItem('fp_signup_email');
 }
 
+// Afficher le plan choisi depuis la page tarifs (?plan=pro|business)
+const planParam = new URLSearchParams(window.location.search).get('plan');
+if (planParam && ['pro', 'business'].includes(planParam)) {
+  const labels = { pro: 'Pro — 29 €/mois', business: 'Business — 49 €/mois' };
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:rgba(212,133,59,.1);border:1px solid rgba(212,133,59,.3);border-radius:8px;padding:10px 14px;font-size:.85rem;color:#92400e;margin-bottom:16px;text-align:center';
+  banner.innerHTML = `🚀 Vous avez choisi le plan <strong>${labels[planParam]}</strong>. Créez votre compte pour finaliser votre abonnement.`;
+  // Insérer avant le formulaire
+  const form = document.getElementById('reg-form');
+  form.parentNode.insertBefore(banner, form);
+  // Stocker pour la redirection post-inscription
+  localStorage.setItem('fp_pending_plan', planParam);
+}
+
 document.getElementById('reg-form').onsubmit = async function(e) {
   e.preventDefault();
   const btn    = this.querySelector('.btn');
@@ -116,7 +130,13 @@ document.getElementById('reg-form').onsubmit = async function(e) {
     // Flag for onboarding welcome
     localStorage.setItem('fp_new_account', '1');
     btn.textContent = 'Chargement…';
-    window.location.href = 'dashboard.html';
+    const pendingPlan = localStorage.getItem('fp_pending_plan');
+    if (pendingPlan) {
+      localStorage.removeItem('fp_pending_plan');
+      window.location.href = `settings.html?upgrade=${pendingPlan}`;
+    } else {
+      window.location.href = 'dashboard.html';
+    }
   } catch (err) {
     errEl.textContent = err.message;
     errEl.style.display = 'block';
