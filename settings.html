@@ -348,43 +348,55 @@
           <!-- INTEGRATIONS -->
           <div class="settings-panel" id="panel-integrations">
   <div class="card card-body">
-    <div class="section-divider" style="margin-top:0">Intégrations Comptables &amp; Bancaires</div>
-    <div style="display:flex;flex-direction:column;gap:12px">
 
-      <!-- Logiciels Comptables (Export FEC) -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:1.5rem">📊</span>
+    <!-- COMPTABILITÉ -->
+    <div class="section-divider" style="margin-top:0">Comptabilité</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(27,58,75,.06);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📊</div>
           <div>
-            <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Logiciels Comptables (Dougs, Sage, EBP, Indy...)</div>
-            <div style="font-size:.78rem;color:var(--text-muted)">Générez un fichier FEC universel compatible avec tous les experts-comptables.</div>
+            <div style="font-weight:700;font-size:.92rem;color:var(--navy)">Sage, EBP, Dougs, Indy, ACD…</div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">Export FEC universel compatible avec tous les logiciels comptables et experts-comptables.</div>
           </div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="exportFEC()">⬇ Exporter au format FEC</button>
+        <button class="btn btn-primary btn-sm" onclick="exportFEC()">⬇ Exporter au format FEC</button>
       </div>
-
-      <!-- Qonto & Zapier (Vote) -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:1.5rem">⚡</span>
-          <div>
-            <div style="font-weight:700;font-size:.9rem;color:var(--navy)">Qonto &amp; Zapier</div>
-            <div style="font-size:.78rem;color:var(--text-muted)">Rapprochement bancaire et automatisation des workflows.</div>
-          </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="FP.toast('Votre vote a été enregistré ! Nous priorisons cette intégration.', 'success')">👍 Voter pour cette intégration</button>
-      </div>
-
     </div>
 
-    <div class="section-divider">API FacturePilot</div>
-    <div style="background:rgba(212,133,59,.06);border:1px solid rgba(212,133,59,.2);border-radius:10px;padding:16px 20px;font-size:.85rem">
-      <div style="font-weight:700;color:var(--navy);margin-bottom:6px">🔑 API REST — Connectez vos outils métier</div>
-      <div style="color:var(--text-muted);margin-bottom:12px">Générez votre clé API privée pour automatiser la création de factures depuis votre CRM ou votre site e-commerce.</div>
+    <!-- BANQUE -->
+    <div class="section-divider">Banque</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border:1.5px dashed var(--border);border-radius:12px;flex-wrap:wrap;gap:12px;background:rgba(0,0,0,.015)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(212,133,59,.07);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">🏦</div>
+          <div>
+            <div style="font-weight:700;font-size:.92rem;color:var(--navy)">Qonto</div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">Rapprochement bancaire automatique. Votez pour prioriser cette intégration.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:.72rem;font-weight:700;color:var(--orange);background:rgba(212,133,59,.1);padding:3px 10px;border-radius:100px">À venir</span>
+          <button class="btn btn-ghost btn-sm" onclick="FP.toast('Votre vote a été enregistré — merci ! Nous priorisons cette intégration.', 'success')">👍 Voter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API -->
+    <div class="section-divider">API REST</div>
+    <div style="background:rgba(27,58,75,.04);border:1px solid rgba(27,58,75,.12);border-radius:12px;padding:18px 20px">
+      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
+        <div style="width:44px;height:44px;border-radius:10px;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🔑</div>
+        <div>
+          <div style="font-weight:700;color:var(--navy);font-size:.92rem">Clé API privée</div>
+          <div style="color:var(--text-muted);font-size:.78rem;margin-top:3px">Automatisez la création de factures depuis votre CRM, ERP ou site e-commerce.</div>
+        </div>
+      </div>
       <div id="api-key-container">
         <button class="btn btn-navy btn-sm" onclick="generateFakeAPIKey(this)">Générer ma clé API</button>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -1041,6 +1053,10 @@ async function deleteAccount() {
     <svg viewBox="0 0 24 24"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     Relances
   </a>
+  <button class="mobile-nav-item active" aria-label="Plus" onclick="FP.openMoreSheet()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    Plus
+  </button>
 </nav>
 </body>
 </html>

@@ -579,6 +579,59 @@ ${lineItems}
     `;
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.innerHTML = html;
+    _injectMoreSheet();
+  };
+
+  // ─── MORE SHEET (Mobile "Plus" Bottom Sheet) ─────────────────────────────────
+  const _injectMoreSheet = () => {
+    if (document.getElementById('fp-more-sheet-overlay')) return;
+    const user = getUser();
+    const ini = ((user.prenom||'?')[0] + (user.nom||'?')[0]).toUpperCase();
+    const overlay = document.createElement('div');
+    overlay.id = 'fp-more-sheet-overlay';
+    overlay.className = 'more-sheet-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeMoreSheet(); };
+    overlay.innerHTML = `
+      <div class="more-sheet" id="fp-more-sheet">
+        <div class="more-sheet-handle"></div>
+        <div class="more-sheet-user">
+          <div class="more-sheet-avatar">${ini}</div>
+          <div>
+            <div class="more-sheet-name">${user.prenom||''} ${user.nom||''}</div>
+            <div class="more-sheet-plan">Plan ${(user.plan||'essentiel').toUpperCase()}</div>
+          </div>
+        </div>
+        <a class="more-sheet-item" href="settings.html">
+          <span class="more-sheet-icon">⚙️</span>
+          <div><div class="more-sheet-label">Paramètres</div><div class="more-sheet-sub">Profil, IBAN, facturation</div></div>
+          <svg class="more-sheet-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a class="more-sheet-item" href="guide-utilisateur.html" target="_blank">
+          <span class="more-sheet-icon">📘</span>
+          <div><div class="more-sheet-label">Guide utilisateur</div><div class="more-sheet-sub">Documentation & tutoriels</div></div>
+          <svg class="more-sheet-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <button class="more-sheet-item more-sheet-danger" onclick="FP.logout()">
+          <span class="more-sheet-icon">🚪</span>
+          <div><div class="more-sheet-label">Se déconnecter</div></div>
+        </button>
+        <div style="height:env(safe-area-inset-bottom,0)"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+  };
+
+  const openMoreSheet = () => {
+    const ov = document.getElementById('fp-more-sheet-overlay');
+    if (!ov) return;
+    ov.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeMoreSheet = () => {
+    const ov = document.getElementById('fp-more-sheet-overlay');
+    if (!ov) return;
+    ov.classList.remove('open');
+    document.body.style.overflow = '';
   };
 
   // ─── QUICK ACTIONS FAB ───────────────────────────────────────────────────────
@@ -640,6 +693,7 @@ ${lineItems}
     generateFacturX, getRelanceMessage,
     // UI
     toast, confirm, renderSidebar, openModal, closeModal, toggleQA,
+    openMoreSheet, closeMoreSheet,
     // Bootstrap
     init,
   };
